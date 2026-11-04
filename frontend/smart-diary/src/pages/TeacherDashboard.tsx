@@ -4,7 +4,7 @@ import { Button } from "../../@/components/ui/button.tsx";
 import bgImage from '@/assets/bg.png';
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from '../utils/api';
-import { getErrorMessage } from '../utils/errors';
+import { getErrorMessage } from '../utils/Errors.ts';
 
 interface UserProfile {
     full_name: string;

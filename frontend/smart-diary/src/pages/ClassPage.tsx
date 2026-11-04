@@ -6,7 +6,7 @@ import bgImage from '@/assets/bg.png';
 import homeIcon from '@/assets/Home-Logo.svg';
 import journalIcon from '@/assets/Journal-Logo.svg';
 import { apiFetch } from '../utils/api';
-import { getErrorMessage } from '../utils/errors';
+import { getErrorMessage } from '../utils/Errors.ts';
 
 interface TopicAvg {
     topic_id: number;
