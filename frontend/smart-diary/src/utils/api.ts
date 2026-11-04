@@ -1,4 +1,10 @@
-import { ApiError, NetworkError, UnexpectedResponseError, getErrorMessage } from "./errors";
+// src/utils/api.ts
+import {
+  ApiError,
+  NetworkError,
+  UnexpectedResponseError,
+  parseApiError,
+} from "./errors";
 
 const BASE_URL = "/api/v1";
 const TOKEN_KEY = "access_token";
@@ -9,41 +15,16 @@ export const auth = {
   clearToken: () => localStorage.removeItem(TOKEN_KEY),
 };
 
-async function parseErrorResponse(response: Response): Promise<ApiError> {
-  let message = `Ошибка ${response.status}`;
-  let body = null;
-
-  try {
-    const text = await response.text();
-    if (text) {
-      try {
-        const json = JSON.parse(text);
-        if (json.detail) {
-          if (typeof json.detail === "string") {
-            message = json.detail;
-          } else if (Array.isArray(json.detail) && json.detail[0]?.msg) {
-            message = `Ошибка валидации: ${json.detail[0].msg}`;
-          }
-        }
-        body = json;
-      } catch {
-        message = text.slice(0, 100);
-      }
-    }
-  } catch {
-    // ignore
-  }
-
-  return new ApiError(response.status, message, body);
-}
-
 interface FetchOptions extends Omit<RequestInit, "body" | "headers"> {
   json?: unknown;
   headers?: Record<string, string>;
   skipAuth?: boolean;
 }
 
-export async function apiFetch<T = unknown>(path: string, options: FetchOptions = {}): Promise<T> {
+export async function apiFetch<T = unknown>(
+  path: string,
+  options: FetchOptions = {},
+): Promise<T> {
   const { json, headers = {}, skipAuth, ...rest } = options;
   const token = auth.getToken();
 
@@ -58,15 +39,15 @@ export async function apiFetch<T = unknown>(path: string, options: FetchOptions 
     response = await fetch(`${BASE_URL}${path}`, {
       ...rest,
       headers: finalHeaders,
-      body: json !== undefined ? JSON.stringify(json) : rest.body,
+      body: json !== undefined ? JSON.stringify(json) : undefined,
     });
-  } catch (e) {
+  } catch {
     throw new NetworkError();
   }
 
   if (!response.ok) {
-    const error = await parseErrorResponse(response);
-    // Авто-логаут при протухшем токене (кроме самого логина)
+    const error: ApiError = await parseApiError(response);
+
     if (error.isUnauthorized && !path.includes("/auth/login")) {
       auth.clearToken();
       window.location.href = "/";
