@@ -18,8 +18,8 @@ import peImg from '../assets/mascots/PE.png';
 import trudImg from '../assets/mascots/trud.png';
 import defaultImg from '../assets/mascots/default.png';
 import phisyc from '../assets/mascots/phisycs.png';
-import biol from '../assets/biol.png';
-import english from '../assets/english.png';
+import biol from '../assets/mascots/biol.png';
+import english from '../assets/mascots/english.png';
 interface UserProfile {
     full_name: string;
     class_id: number;
