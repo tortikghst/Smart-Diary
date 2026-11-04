@@ -1,8 +1,10 @@
 import { useNavigate } from 'react-router-dom';
-import {Button} from "../../@/components/ui/button.tsx";
+import { Button } from "../../@/components/ui/button.tsx";
 import { motion } from "framer-motion";
 import bgImage from '@/assets/bg.png';
 import { useState } from "react";
+import { apiFetch, auth } from '../utils/api';
+import { getErrorMessage } from '../utils/errors';
 
 export default function Login() {
     const navigate = useNavigate();
@@ -16,26 +18,16 @@ export default function Login() {
         const initDataValue = role === 'student' ? 'dev_student_string' : 'dev_teacher_string';
 
         try {
-            const response = await fetch(`/api/v1/auth/login`, {
+            const data = await apiFetch<{ access_token: string }>('/auth/login', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({initData: initDataValue}),
+                json: { initData: initDataValue },
+                skipAuth: true,
             });
-
-            if (!response.ok) {
-                throw new Error('Ошибка авторизации. Проверьте данные.');
-            }
-            const data = await response.json();
-            localStorage.setItem('access_token', data.access_token);
-            if (role === 'student') {
-                navigate('/student');
-            }
-            else {navigate('/teacher');}
+            auth.setToken(data.access_token);
+            navigate(role === 'student' ? '/student' : '/teacher');
         }
-        catch (err: any){
-            setError(err.message || 'Не удалось подключиться к серверу.');
+        catch (err: unknown) {
+            setError(getErrorMessage(err));
         }
         finally {
             setIsLoading(false);

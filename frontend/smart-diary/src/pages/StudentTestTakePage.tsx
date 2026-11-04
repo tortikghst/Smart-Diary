@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, CheckCircle2, XCircle, Award, AlertCircle } from 'lucide-react';
 import { Button } from "../../@/components/ui/button";
 import bgImage from '../assets/bg.png';
+import { apiFetch } from '../utils/api';
+import { getErrorMessage } from '../utils/errors';
 
 interface TestQuestion {
     question_id: number;
@@ -39,32 +41,22 @@ export default function StudentTestTakePage() {
     const [currentIdx, setCurrentIdx] = useState(0);
     const [answers, setAnswers] = useState<Record<number, string | string[]>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
     const [result, setResult] = useState<SubmitResult | null>(null);
 
     useEffect(() => {
         if (preloadedTest) {
             setTest(preloadedTest);
             setIsLoading(false);
-            console.log("PRELOADED TEST DATA:", preloadedTest);
             return;
         }
 
         const fetchTest = async () => {
-            const token = localStorage.getItem('access_token');
-            if (!token) return;
-
             try {
-                const res = await fetch(`/api/v1/tests/${testId}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                if (!res.ok) throw new Error('Тест не найден или еще не опубликован');
-
-                const data = await res.json();
+                const data = await apiFetch<TestData>(`/tests/${testId}`);
                 setTest(data);
-                console.log("FETCHED TEST DATA:", data);
-            } catch (err: any) {
-                setErrorMsg(err.message);
+            } catch (err) {
+                setErrorMsg(getErrorMessage(err));
             } finally {
                 setIsLoading(false);
             }
@@ -125,7 +117,7 @@ export default function StudentTestTakePage() {
 
     const handleSubmit = async () => {
         setIsSubmitting(true);
-        const token = localStorage.getItem('access_token');
+        setSubmitError(null);
 
         const formattedAnswers = Object.entries(answers).map(([qId, ans]) => ({
             question_id: Number(qId),
@@ -133,24 +125,13 @@ export default function StudentTestTakePage() {
         }));
 
         try {
-            const res = await fetch(`/api/v1/tests/${testId}/submit`, {
+            const submitData = await apiFetch<SubmitResult>(`/tests/${testId}/submit`, {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ answers: formattedAnswers })
+                json: { answers: formattedAnswers }
             });
-
-            if (!res.ok) {
-                const errorData = await res.text();
-                throw new Error(errorData || 'Ошибка при отправке теста');
-            }
-
-            const submitData: SubmitResult = await res.json();
             setResult(submitData);
-        } catch (err: any) {
-            alert(err.message);
+        } catch (err) {
+            setSubmitError(getErrorMessage(err));
         } finally {
             setIsSubmitting(false);
         }
@@ -187,7 +168,6 @@ export default function StudentTestTakePage() {
                     </div>
 
                     <div className="flex flex-col gap-3">
-                        {/* Кнопка разбора ошибок */}
                         <Button
                             onClick={() => navigate(`/student/tests/${testId}/review?attempt_id=${result.attempt_id}`)}
                             className="w-full h-14 bg-[#94A9BE] hover:bg-[#859bb1] text-white font-extrabold text-[16px] rounded-full transition-all shadow-md"
@@ -343,10 +323,18 @@ export default function StudentTestTakePage() {
                 </div>
 
                 <div className="p-5 sticky bottom-0 bg-gradient-to-t from-[#f2f6f9] via-[#f2f6f9] to-transparent z-20 mt-auto">
+                    
+                    {/* 👇 БЛОК ВЫВОДА ОШИБКИ ОТПРАВКИ 👇 */}
+                    {submitError && (
+                        <div className="mb-4 p-3 bg-[#f8e8e8] border border-[#D48B8B]/30 text-[#D48B8B] text-[13px] font-bold rounded-xl text-center leading-snug">
+                            {submitError}
+                        </div>
+                    )}
+
                     <div className="flex gap-3">
                         {currentIdx > 0 && (
                             <Button
-                                onClick={() => setCurrentIdx(prev => prev - 1)}
+                                onClick={() => { setCurrentIdx(prev => prev - 1); setSubmitError(null); }}
                                 className="w-[30%] h-14 bg-white text-[#3b506c] font-extrabold text-[16px] rounded-full shadow-sm hover:bg-gray-50 transition-all"
                             >
                                 Назад
@@ -355,7 +343,7 @@ export default function StudentTestTakePage() {
 
                         {currentIdx < totalQuestions - 1 ? (
                             <Button
-                                onClick={() => setCurrentIdx(prev => prev + 1)}
+                                onClick={() => { setCurrentIdx(prev => prev + 1); setSubmitError(null); }}
                                 disabled={!hasAnswered}
                                 className="flex-1 h-14 bg-[#B2CDE0] hover:bg-[#94A9BE] text-[#3b506c] font-extrabold text-[16px] rounded-full shadow-md transition-all disabled:opacity-50 disabled:bg-gray-300"
                             >

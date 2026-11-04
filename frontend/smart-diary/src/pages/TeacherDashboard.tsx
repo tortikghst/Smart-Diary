@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "../../@/components/ui/button.tsx";
 import bgImage from '@/assets/bg.png';
-import {useNavigate} from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { apiFetch } from '../utils/api';
+import { getErrorMessage } from '../utils/errors';
 
 interface UserProfile {
     full_name: string;
@@ -37,34 +39,18 @@ export default function TeacherDashboard() {
 
     useEffect(() => {
         const fetchData = async () => {
-            const token = localStorage.getItem('access_token');
-
-            if (!token) {
-                window.location.href = '/';
-                return;
-            }
-
-            const headers = {
-                'Authorization': `Bearer ${token}`
-            };
-
             try {
-                const [userRes, dashboardRes] = await Promise.all([
-                    fetch('/api/v1/users/me', { headers }),
-                    fetch('/api/v1/teacher/dashboard', { headers })
+                const [userData, dashboardData] = await Promise.all([
+                    apiFetch<UserProfile>('/users/me'),
+                    apiFetch<TeacherDashboardData>('/teacher/dashboard')
                 ]);
-
-                if (!userRes.ok || !dashboardRes.ok) {
-                    throw new Error('Ошибка загрузки данных');
-                }
-
-                const userData = await userRes.json();
-                const dashboardData = await dashboardRes.json();
 
                 setUser(userData);
                 setDashboard(dashboardData);
             } catch (err) {
-                console.error(err);
+                // 401 (протухший токен) apiFetch обработает сам и перекинет на '/'
+                // Здесь ловим остальные ошибки (например, 500 на бэкенде)
+                console.error("Ошибка загрузки дашборда:", getErrorMessage(err));
             } finally {
                 setIsLoading(false);
             }

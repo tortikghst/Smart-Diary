@@ -4,6 +4,8 @@ import { motion } from 'framer-motion';
 import { ChevronLeft, PlayCircle, Star } from 'lucide-react';
 import { Button } from "../../@/components/ui/button";
 import bgImage from '../assets/bg.png';
+import { apiFetch } from '../utils/api';
+import { getErrorMessage } from '../utils/errors';
 
 interface AvailableTest {
     test_id: number;
@@ -13,7 +15,6 @@ interface AvailableTest {
     attempts_left: number;
     best_percent: number | null;
 }
-
 interface DashboardData {
     available_tests: AvailableTest[];
 }
@@ -22,27 +23,19 @@ export default function StudentTestsPage() {
     const navigate = useNavigate();
     const [tests, setTests] = useState<AvailableTest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchTests = async () => {
-            const token = localStorage.getItem('access_token');
-            if (!token) return;
-
             try {
-                const res = await fetch('/api/v1/student/dashboard', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (res.ok) {
-                    const data: DashboardData = await res.json();
-                    setTests(data.available_tests || []);
-                }
+                const data = await apiFetch<DashboardData>('/student/dashboard');
+                setTests(data.available_tests || []);
             } catch (err) {
-                console.error("Ошибка загрузки тестов:", err);
+                setErrorMsg(getErrorMessage(err));
             } finally {
                 setIsLoading(false);
             }
         };
-
         fetchTests();
     }, []);
 
@@ -51,7 +44,6 @@ export default function StudentTestsPage() {
             <div className="fixed inset-0 bg-cover bg-center bg-no-repeat opacity-40 z-0" style={{ backgroundImage: `url(${bgImage})` }} />
 
             <div className="relative z-10 w-full max-w-[430px] flex flex-col">
-                {/* Шапка */}
                 <header className="bg-[#B2CDE0] px-5 py-4 rounded-b-[40px] shadow-sm flex items-center justify-between sticky top-0 z-20">
                     <button onClick={() => navigate('/student')} className="w-10 h-10 bg-[#94A9BE] rounded-xl flex items-center justify-center text-white hover:bg-[#859bb1] transition-colors">
                         <ChevronLeft size={24} />
@@ -63,6 +55,10 @@ export default function StudentTestsPage() {
                 <div className="mt-6 px-4">
                     {isLoading ? (
                         <div className="flex justify-center items-center h-[200px] text-[#3b506c] animate-pulse font-bold">Загрузка тестов...</div>
+                    ) : errorMsg ? (
+                        <div className="bg-[#f8e8e8] text-[#D48B8B] p-6 rounded-[20px] text-center font-bold text-sm">
+                            {errorMsg}
+                        </div>
                     ) : tests.length === 0 ? (
                         <div className="bg-white/80 backdrop-blur-md rounded-[30px] p-8 text-center shadow-sm border border-white/50 mt-10">
                             <div className="w-20 h-20 bg-[#EBF1F1] rounded-full flex items-center justify-center mx-auto mb-4 text-[#94A9BE]">
@@ -100,7 +96,6 @@ export default function StudentTestsPage() {
                                                 {test.attempts_used} / {test.attempts_used + test.attempts_left}
                                             </span>
                                         </div>
-
                                         <Button
                                             onClick={() => navigate(`/student/tests/${test.test_id}`)}
                                             disabled={test.attempts_left === 0}

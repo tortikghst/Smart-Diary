@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from "../../@/components/ui/button.tsx";
 import bgImage from '@/assets/bg.png';
 import homeIcon from '@/assets/Home-Logo.svg';
-import { useLocation } from 'react-router-dom';
+import { apiFetch } from '../utils/api';
+import { getErrorMessage } from '../utils/errors';
 
 interface UserProfile {
     full_name: string;
@@ -44,6 +45,8 @@ interface JournalLesson {
 
 export default function TeacherTestsPage() {
     const navigate = useNavigate();
+    const location = useLocation();
+    
     const [user, setUser] = useState<UserProfile | null>(null);
     const [dashboard, setDashboard] = useState<TeacherDashboardData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -58,34 +61,22 @@ export default function TeacherTestsPage() {
 
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-    const location = useLocation();
-
     const showToast = (message: string, type: 'success' | 'error') => {
         setToast({ message, type });
         setTimeout(() => setToast(null), 3000);
     };
 
     const fetchData = async () => {
-        const token = localStorage.getItem('access_token');
-        if (!token) return;
-        const headers = { 'Authorization': `Bearer ${token}` };
-
         try {
-            const [userRes, dashboardRes] = await Promise.all([
-                fetch('/api/v1/users/me', {
-                    headers,
-                    cache: 'no-store'}),
-                fetch('/api/v1/teacher/dashboard', {
-                    headers,
-                    cache: 'no-store',  })
+            const [userData, dashboardData] = await Promise.all([
+                apiFetch<UserProfile>('/users/me'),
+                apiFetch<TeacherDashboardData>('/teacher/dashboard')
             ]);
-
-            if (userRes.ok && dashboardRes.ok) {
-                setUser(await userRes.json());
-                setDashboard(await dashboardRes.json());
-            }
+            setUser(userData);
+            setDashboard(dashboardData);
         } catch (err) {
             console.error("Ошибка загрузки данных:", err);
+            showToast(getErrorMessage(err), 'error');
         } finally {
             setIsLoading(false);
         }
@@ -93,26 +84,20 @@ export default function TeacherTestsPage() {
 
     useEffect(() => {
         fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [location.key]);
 
     const handleDelete = async () => {
         if (!selectedTest) return;
         setIsDeleting(true);
-        const token = localStorage.getItem('access_token');
 
         try {
-            const res = await fetch(
-                `/api/v1/teacher/tests/${selectedTest.test_id}`,
-                { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } }
-            );
-
-            if (!res.ok) throw new Error('Ошибка удаления');
-
+            await apiFetch(`/teacher/tests/${selectedTest.test_id}`, { method: 'DELETE' });
             showToast('Тест удалён', 'success');
             closeSheet();
             fetchData();
-        } catch {
-            showToast('Не удалось удалить тест', 'error');
+        } catch (err) {
+            showToast(getErrorMessage(err), 'error');
         } finally {
             setIsDeleting(false);
         }
@@ -128,26 +113,19 @@ export default function TeacherTestsPage() {
         setIsLoadingLessons(true);
         setLessons([]);
 
-        const token = localStorage.getItem('access_token');
-
         try {
-            const res = await fetch(
-                `/api/v1/classes/${selectedTest.class_id}/journal?subject_id=${user.subject.subject_id}&page=1&page_size=50`,
-                { headers: { 'Authorization': `Bearer ${token}` } }
+            const data = await apiFetch<{ lessons: JournalLesson[] }>(
+                `/classes/${selectedTest.class_id}/journal?subject_id=${user.subject.subject_id}&page=1&page_size=50`
             );
-
-            if (!res.ok) throw new Error('Не удалось загрузить уроки');
-
-            const data = await res.json();
-            const rawLessons: JournalLesson[] = data.lessons || [];
+            const rawLessons = data.lessons || [];
 
             const sorted = [...rawLessons].sort((a, b) =>
                 new Date(a.lesson_date).getTime() - new Date(b.lesson_date).getTime()
             );
 
             setLessons(sorted);
-        } catch {
-            showToast('Не удалось загрузить список уроков', 'error');
+        } catch (err) {
+            showToast(getErrorMessage(err), 'error');
         } finally {
             setIsLoadingLessons(false);
         }
@@ -156,31 +134,21 @@ export default function TeacherTestsPage() {
     const handlePublish = async (lesson: JournalLesson) => {
         if (!selectedTest) return;
         setIsPublishing(true);
-        const token = localStorage.getItem('access_token');
 
         try {
-            const res = await fetch('/api/v1/teacher/tests/publish', {
+            await apiFetch('/teacher/tests/publish', {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
+                json: {
                     test_id: selectedTest.test_id,
                     lesson_id: lesson.lesson_id
-                })
+                }
             });
-
-            if (!res.ok) {
-                const errText = await res.text();
-                throw new Error(errText || 'Ошибка публикации');
-            }
 
             showToast('Тест опубликован!', 'success');
             closeSheet();
             fetchData();
-        } catch (err: any) {
-            showToast(err.message || 'Не удалось опубликовать тест', 'error');
+        } catch (err) {
+            showToast(getErrorMessage(err), 'error');
         } finally {
             setIsPublishing(false);
         }

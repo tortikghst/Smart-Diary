@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, BookOpen, AlertCircle } from 'lucide-react';
 import { Button } from "../../@/components/ui/button";
 import bgImage from '../assets/bg.png';
+import { apiFetch } from '../utils/api';
+import { getErrorMessage } from '../utils/errors';
 
 interface StudentDebt {
     debt_id: number;
@@ -21,23 +23,18 @@ export default function StudentDebtsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [selectedDebt, setSelectedDebt] = useState<StudentDebt | null>(null);
     const [isCreatingPrep, setIsCreatingPrep] = useState(false);
+    
+    // Стейт для ошибок
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchDebts = async () => {
-            const token = localStorage.getItem('access_token');
-            if (!token) return;
-
             try {
-                const res = await fetch('/api/v1/student/debts', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    // Оставляем только нерешенные (на всякий случай)
-                    setDebts(data.filter((d: StudentDebt) => !d.resolved));
-                }
+                const data = await apiFetch<StudentDebt[]>('/student/debts');
+                setDebts(data.filter((d) => !d.resolved));
             } catch (err) {
-                console.error("Ошибка загрузки задолженностей:", err);
+                console.error(err);
+                // Можно добавить глобальный тост, если нужно
             } finally {
                 setIsLoading(false);
             }
@@ -48,39 +45,33 @@ export default function StudentDebtsPage() {
     const handleCreatePrepTest = async () => {
         if (!selectedDebt) return;
         setIsCreatingPrep(true);
-        const token = localStorage.getItem('access_token');
+        setErrorMsg(null); // Сбрасываем старую ошибку перед новым запросом
 
         try {
-            const res = await fetch(`/api/v1/student/debts/${selectedDebt.debt_id}/prep-test`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const testData = await apiFetch<{ test_id: number, questions: any[] }>(
+                `/student/debts/${selectedDebt.debt_id}/prep-test`, 
+                { method: 'POST' }
+            );
 
-            if (res.ok) {
-                const testData = await res.json();
-
-                // Проверка: а вдруг ИИ вернул пустой массив вопросов?
-                if (!testData.questions || testData.questions.length === 0) {
-                    alert("Тест создан, но ИИ не сгенерировал ни одного вопроса. Попробуйте позже.");
-                    return;
-                }
-
-                // Передаем готовый тест через state
-                navigate(`/student/tests/${testData.test_id}`, {
-                    state: { isPrep: true, preloadedTest: testData }
-                });
-            } else {
-                // ВЫТАСКИВАЕМ РЕАЛЬНУЮ ОШИБКУ С БЭКЕНДА
-                const errorData = await res.text();
-                console.error("Ошибка бэкенда:", res.status, errorData);
-                alert(`Бэкенд вернул ошибку ${res.status}.\n\n${errorData}`);
+            if (!testData.questions || testData.questions.length === 0) {
+                setErrorMsg("ИИ не сгенерировал ни одного вопроса. Попробуйте позже.");
+                return;
             }
-        } catch (err: any) {
-            console.error(err);
-            alert("Ошибка сети. Возможно, сервер недоступен или запрос идет слишком долго (таймаут).");
+
+            navigate(`/student/tests/${testData.test_id}`, {
+                state: { isPrep: true, preloadedTest: testData }
+            });
+        } catch (err) {
+            setErrorMsg(getErrorMessage(err));
         } finally {
             setIsCreatingPrep(false);
         }
+    };
+
+    // Функция для закрытия панели со сбросом ошибки
+    const closeSheet = () => {
+        setSelectedDebt(null);
+        setErrorMsg(null);
     };
 
     const formatDate = (dateString: string) => {
@@ -147,7 +138,7 @@ export default function StudentDebtsPage() {
                         <motion.div
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
-                            onClick={() => setSelectedDebt(null)}
+                            onClick={closeSheet}
                         />
                         <motion.div
                             initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
@@ -169,6 +160,13 @@ export default function StudentDebtsPage() {
                                 </p>
                             </div>
 
+                            {/* Блок ошибки (вставляем строго перед кнопкой!) */}
+                            {errorMsg && (
+                                <div className="w-full bg-[#f8e8e8] border border-[#D48B8B]/30 text-[#D48B8B] p-3 rounded-xl mb-4 text-center text-[13px] font-bold leading-tight">
+                                    {errorMsg}
+                                </div>
+                            )}
+
                             <Button
                                 onClick={handleCreatePrepTest}
                                 disabled={isCreatingPrep}
@@ -178,7 +176,7 @@ export default function StudentDebtsPage() {
                             </Button>
 
                             <Button
-                                onClick={() => setSelectedDebt(null)}
+                                onClick={closeSheet}
                                 className="w-full h-12 bg-transparent text-[#859bb1] font-bold text-[15px] rounded-full hover:bg-gray-50 transition-all"
                             >
                                 Закрыть

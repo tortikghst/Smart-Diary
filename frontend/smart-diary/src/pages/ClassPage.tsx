@@ -5,6 +5,8 @@ import { Button } from "../../@/components/ui/button.tsx";
 import bgImage from '@/assets/bg.png';
 import homeIcon from '@/assets/Home-Logo.svg';
 import journalIcon from '@/assets/Journal-Logo.svg';
+import { apiFetch } from '../utils/api';
+import { getErrorMessage } from '../utils/errors';
 
 interface TopicAvg {
     topic_id: number;
@@ -43,28 +45,22 @@ export default function ClassPage() {
 
     const [data, setData] = useState<AnalyticsData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [activeChart, setActiveChart] = useState<'bar' | 'pie'>('bar');
     const [topicIndex, setTopicIndex] = useState(0);
 
     useEffect(() => {
         const fetchAnalytics = async () => {
-            const token = localStorage.getItem('access_token');
-            if (!token) return;
+            setIsLoading(true);
+            setError(null);
 
             try {
-                const response = await fetch(`/api/v1/classes/${classId}/analytics`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (response.ok) {
-                    const result = await response.json();
-                    setData(result);
-                    setTopicIndex(0);
-                }
-            }
-            catch (err) {
-                console.error(err);
-            }
-            finally {
+                const result = await apiFetch<AnalyticsData>(`/classes/${classId}/analytics`);
+                setData(result);
+                setTopicIndex(0);
+            } catch (err) {
+                setError(getErrorMessage(err));
+            } finally {
                 setIsLoading(false);
             }
         };
@@ -201,6 +197,13 @@ export default function ClassPage() {
                                 <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex items-center justify-center text-[#596070] font-bold">
                                     Загрузка данных...
                                 </motion.div>
+                            ) : error ? (
+                                <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex flex-col items-center justify-center text-[#D48B8B] font-bold text-center px-4">
+                                    <p>{error}</p>
+                                    <Button onClick={() => window.location.reload()} className="mt-4 bg-[#D48B8B] text-white rounded-full px-6 h-10 text-sm">
+                                        Повторить
+                                    </Button>
+                                </motion.div>
                             ) : activeChart === 'bar' ? (
                                 <motion.div
                                     key="bar"
@@ -214,7 +217,7 @@ export default function ClassPage() {
                                         ref={scrollRef}
                                         className="flex overflow-x-auto gap-3 pb-2 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] h-[200px] items-end"
                                     >
-                                        {data?.topics_avg.map((topic, index) => {
+                                        {data?.topics_avg?.map((topic, index) => {
                                             const height = `${Math.max((topic.avg_score / 5) * 100, 10)}%`;
                                             const isActive = index === topicIndex;
                                             return (
@@ -234,7 +237,6 @@ export default function ClassPage() {
                                                         </div>
                                                     </motion.div>
 
-                                                    {/* ОБНОВЛЕННЫЙ БЛОК ТЕКСТА */}
                                                     <div className="h-11 w-full flex items-start justify-center pt-1 overflow-hidden">
                                                         <span className={`text-[10px] font-bold text-center leading-[1.1] line-clamp-3 w-full break-words hyphens-auto ${isActive ? 'text-[#596070]' : 'text-[#859bb1]'}`}>
                                                             {topic.topic_title}

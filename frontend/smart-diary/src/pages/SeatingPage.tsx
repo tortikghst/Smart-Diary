@@ -1,5 +1,5 @@
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DndContext, useDraggable, useDroppable, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
@@ -7,6 +7,8 @@ import { Button } from "../../@/components/ui/button.tsx";
 import bgImage from '@/assets/bg.png';
 import homeIcon from '@/assets/Home-Logo.svg';
 import journalIcon from '@/assets/Journal-Logo.svg';
+import { apiFetch } from '../utils/api';
+import { getErrorMessage } from '../utils/errors';
 
 interface Seat {
     row: number;
@@ -31,6 +33,11 @@ interface SeatingData {
 interface Student {
     student_id: number;
     full_name: string;
+}
+
+interface TeacherClass {
+    class_id: number;
+    class_name: string;
 }
 
 const AVAILABLE_MARKERS = [
@@ -146,37 +153,38 @@ export default function SeatingPage() {
     );
 
     const fetchSeating = async () => {
-        const token = localStorage.getItem('access_token');
-        if (!token) return;
-        const headers = { 'Authorization': `Bearer ${token}` };
-
         try {
+            // 1. Если имя класса не передано, подтягиваем из списка классов
             if (!location.state?.className) {
-                const classesRes = await fetch(`/api/v1/teacher/classes`, { headers });
-                if (classesRes.ok) {
-                    const classesData = await classesRes.json();
-                    const currentClass = classesData.find((c: any) => c.class_id === Number(classId));
+                try {
+                    const classesData = await apiFetch<TeacherClass[]>('/teacher/classes');
+                    const currentClass = classesData.find((c) => c.class_id === Number(classId));
                     if (currentClass) setDisplayClassName(`${currentClass.class_name} КЛАСС`);
                     else setDisplayClassName(`${classId} КЛАСС`);
+                } catch {
+                    setDisplayClassName(`${classId} КЛАСС`);
                 }
             }
 
-            const seatingRes = await fetch(`/api/v1/seating/${classId}`, { headers });
-            if (seatingRes.ok) {
-                const seatingData = await seatingRes.json();
+            // 2. Загружаем рассадку (если 404 — значит её еще нет, это нормально)
+            try {
+                const seatingData = await apiFetch<SeatingData>(`/seating/${classId}`);
                 setData(seatingData);
                 setTempRows(seatingData.layout_json.grid?.rows || 5);
                 setTempDesks(Math.ceil((seatingData.layout_json.grid?.cols || 6) / 2));
+            } catch (err) {
+                // Игнорируем 404 (нет рассадки), остальные ошибки пробрасываем
+                if (!(err as any).isNotFound) throw err;
             }
 
-            const studentsRes = await fetch(`/api/v1/classes/${classId}/students`, { headers });
-            if (studentsRes.ok) {
-                const studentsData = await studentsRes.json();
-                setStudents(studentsData);
-            }
+            // 3. Загружаем учеников
+            const studentsData = await apiFetch<Student[]>(`/classes/${classId}/students`);
+            setStudents(studentsData);
+
         } catch (err) {
             console.error("Ошибка при загрузке данных:", err);
-            setDisplayClassName(`${classId} КЛАСС`);
+            showToast(getErrorMessage(err), 'error');
+            if (displayClassName === 'Загрузка...') setDisplayClassName(`${classId} КЛАСС`);
         } finally {
             setIsLoading(false);
         }
@@ -184,16 +192,14 @@ export default function SeatingPage() {
 
     useEffect(() => {
         fetchSeating();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [classId]);
 
     const handleGenerate = async () => {
-        const token = localStorage.getItem('access_token');
-        if (!token) return;
-
         setIsGenerating(true);
-        console.error(null);
 
         try {
+            // Сохраняем текущие маркеры учеников
             const savedMarkers: Record<number, string[]> = {};
             data?.layout_json.seats.forEach(s => {
                 if (s.student_id !== 0 && s.markers.length > 0) {
@@ -203,15 +209,12 @@ export default function SeatingPage() {
 
             const colsToGenerate = data?.layout_json?.grid?.cols || 6;
 
-            const response = await fetch(`/api/v1/seating/${classId}/generate?cols=${colsToGenerate}`, {
+            // 1. Генерация
+            const newData = await apiFetch<SeatingData>(`/seating/${classId}/generate?cols=${colsToGenerate}`, {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
             });
 
-            if (!response.ok) throw new Error(`Ошибка генерации: ${response.status}`);
-
-            const newData = await response.json();
-
+            // Возвращаем маркеры на места
             const updatedSeats = newData.layout_json.seats.map((seat: Seat) => {
                 if (seat.student_id !== 0 && savedMarkers[seat.student_id]) {
                     return { ...seat, markers: savedMarkers[seat.student_id] };
@@ -224,21 +227,20 @@ export default function SeatingPage() {
                 layout_json: { ...newData.layout_json, seats: updatedSeats }
             };
 
+            // 2. Сохраняем сгенерированную рассадку
+            await apiFetch(`/seating/${classId}`, {
+                method: 'PUT',
+                json: { layout_json: finalData.layout_json }
+            });
+
             setData(finalData);
             setTempRows(finalData.layout_json.grid?.rows || 5);
             setTempDesks(Math.ceil((finalData.layout_json.grid?.cols || 6) / 2));
 
-            await fetch(`/api/v1/seating/${classId}`, {
-                method: 'PUT',
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ layout_json: finalData.layout_json })
-            });
-
             showToast('Рассадка сгенерирована!', 'success');
 
-        } catch (err: any) {
-            console.error(err.message || "Неизвестная ошибка");
-            showToast('Не удалось сгенерировать', 'error');
+        } catch (err) {
+            showToast(getErrorMessage(err), 'error');
         } finally {
             setIsGenerating(false);
         }
@@ -246,39 +248,24 @@ export default function SeatingPage() {
 
     const handleSave = async () => {
         if (!data) return;
-        const token = localStorage.getItem('access_token');
-        if (!token) return;
-
         setIsSaving(true);
+
         try {
-            const response = await fetch(`/api/v1/seating/${classId}`, {
+            await apiFetch(`/seating/${classId}`, {
                 method: 'PUT',
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ layout_json: data.layout_json })
+                json: { layout_json: data.layout_json }
             });
-
-            if (!response.ok) throw new Error(`Ошибка ${response.status}`);
-
             showToast('Рассадка успешно сохранена!', 'success');
-        } catch (err: any) {
-            console.error(err);
-            showToast('Ошибка при сохранении', 'error');
+        } catch (err) {
+            showToast(getErrorMessage(err), 'error');
         } finally {
             setIsSaving(false);
         }
     };
 
     const handleDownload = async () => {
-        const token = localStorage.getItem('access_token');
-        if (!token) return;
-
         try {
-            const response = await fetch(`/api/v1/seating/${classId}/download`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!response.ok) throw new Error('Картинка не сгенерирована');
-
-            const blob = await response.blob();
+            const blob = await apiFetch<Blob>(`/seating/${classId}/download`);
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -286,10 +273,11 @@ export default function SeatingPage() {
             document.body.appendChild(a);
             a.click();
             a.remove();
+            window.URL.revokeObjectURL(url); // Очищаем память
 
             showToast('Картинка скачана!', 'success');
-        } catch (err: any) {
-            showToast('Не удалось скачать картинку', 'error');
+        } catch (err) {
+            showToast(getErrorMessage(err), 'error');
         }
     };
 
