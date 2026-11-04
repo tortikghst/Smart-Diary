@@ -1,0 +1,83 @@
+services:
+  # === БАЗА ДАННЫХ ===
+  postgres_db:
+    image: postgres:16
+    container_name: smart_dairy_db
+    env_file:
+      - ./backend/.env # Берем настройки БД (логин/пароль) из твоего старого .env
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+    healthcheck:
+      # Обязательно проверяем пользователя, иначе healthcheck упадет
+      test: ["CMD-SHELL", "pg_isready -U hakaton_team -d smart_dairy"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  # === REDIS ===
+  redis_container:
+    image: redis:alpine
+    container_name: smart_dairy_redis
+    ports:
+      - "6378:6379"
+    restart: always
+
+  # === БЭКЕНД (FastAPI) ===
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: smart_diary_backend
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8080:8080"
+    environment:
+      # Переопределяем адреса для работы внутри Docker-сети
+      - DB_HOST=postgres_db
+      - DB_PORT=5432
+      - REDIS_HOST=redis_container
+      - REDIS_PORT=6379
+    volumes:
+      - ./backend:/db_smart_dairy
+      - class_photos:/tmp/photos # Персистентное сохранение фото
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      redis_container:
+        condition: service_started
+    restart: always
+
+  # === ФРОНТЕНД (React + Nginx) ===
+  frontend:
+    build:
+      context: ./frontend/smart-diary
+      dockerfile: Dockerfile
+    container_name: smart_diary_frontend
+    ports:
+      - "80:80" # Открывается на http://localhost
+    depends_on:
+      - backend
+    restart: always
+
+  # === PGADMIN (Удобно смотреть базу) ===
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: smart_diary_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@dairy.me
+      PGADMIN_DEFAULT_PASSWORD: admin_secret_pass
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+    restart: always
+
+volumes:
+  postgres_data:
+  class_photos:
