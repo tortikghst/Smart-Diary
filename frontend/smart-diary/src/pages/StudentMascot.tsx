@@ -18,7 +18,8 @@ import peImg from '../assets/mascots/PE.png';
 import trudImg from '../assets/mascots/trud.png';
 import defaultImg from '../assets/mascots/default.png';
 import phisyc from '../assets/mascots/phisycs.png';
-
+import biol from '../assets/biol.png';
+import english from '../assets/english.png';
 interface UserProfile {
     full_name: string;
     class_id: number;
@@ -66,6 +67,8 @@ const getMascotImage = (subjectName: string) => {
     }
     if (name.includes('труд') || name.includes('технолог')) return trudImg;
     if (name.includes('физ')) return phisyc;
+    if (name.includes('биолог')) return biol;
+    if (name.includes('английск') || name.includes('иностран')) return english;
     return defaultImg;
 };
 
