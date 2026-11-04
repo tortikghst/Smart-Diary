@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from "../../@/components/ui/button.tsx";
 import bgImage from '@/assets/bg.png';
 import homeIcon from '@/assets/Home-Logo.svg';
+import { apiFetch } from '../utils/api';
+import { getErrorMessage } from '../utils/Errors.ts';
 
 const QUESTION_TYPES = [
     { id: 'single_choice', label: 'Одиночный выбор' },
@@ -88,36 +90,23 @@ export default function TestCreatePage() {
 
     useEffect(() => {
         const fetchInitialData = async () => {
-            const token = localStorage.getItem('access_token');
-            if (!token) return;
-
             try {
-                const [userRes, topicsRes, classesRes] = await Promise.all([
-                    fetch('/api/v1/users/me', { headers: { 'Authorization': `Bearer ${token}` } }),
-                    fetch('/api/v1/teacher/topics', { headers: { 'Authorization': `Bearer ${token}` } }),
-                    fetch('/api/v1/teacher/classes', { headers: { 'Authorization': `Bearer ${token}` } })
+                const [userData, topicsData, classesData] = await Promise.all([
+                    apiFetch<UserProfile>('/users/me'),
+                    apiFetch<Topic[]>('/teacher/topics'),
+                    apiFetch<TeacherClass[]>('/teacher/classes')
                 ]);
 
-                if (userRes.ok) setUser(await userRes.json());
+                setUser(userData);
+                setTopics(topicsData);
+                if (!isEditing && topicsData.length > 0) setSelectedTopic(topicsData[0].topic_id.toString());
 
-                if (topicsRes.ok) {
-                    const topicsData = await topicsRes.json();
-                    setTopics(topicsData);
-                    if (!isEditing && topicsData.length > 0) setSelectedTopic(topicsData[0].topic_id.toString());
-                }
-
-                if (classesRes.ok) {
-                    const classesData = await classesRes.json();
-                    setClasses(classesData);
-                    if (!isEditing && classesData.length > 0) setSelectedClass(classesData[0].class_id.toString());
-                }
+                setClasses(classesData);
+                if (!isEditing && classesData.length > 0) setSelectedClass(classesData[0].class_id.toString());
 
                 if (isEditing && urlTestId) {
                     setIsLoadingTest(true);
-                    const testRes = await fetch(`/api/v1/teacher/tests/${urlTestId}`, { headers: { 'Authorization': `Bearer ${token}` } });
-                    if (!testRes.ok) { showToast('Не удалось загрузить тест', 'error'); setIsLoadingTest(false); return; }
-
-                    const data = await testRes.json();
+                    const data = await apiFetch<any>(`/teacher/tests/${urlTestId}`);
                     setTestId(data.test_id);
                     setSelectedTopic(String(data.topic_id));
                     setTestName(`Тест #${data.test_id}`);
@@ -146,60 +135,65 @@ export default function TestCreatePage() {
                         };
                     });
                     setQuestions(mapped);
-                    setIsLoadingTest(false);
                 }
-            } catch (err) { console.error(err); setIsLoadingTest(false); }
+            } catch (err) {
+                showToast(getErrorMessage(err), 'error');
+            } finally {
+                setIsLoadingTest(false);
+            }
         };
         fetchInitialData();
     }, [urlTestId, isEditing]);
 
     const callAIGenerate = async (count: number, type: string | null = null) => {
-        const token = localStorage.getItem('access_token');
-        if (!token || !selectedTopic || !selectedClass) {
+        if (!selectedTopic || !selectedClass) {
             showToast('Выберите тему и класс', 'error');
             return null;
         }
         if (testId && !isEditing) {
-            await fetch(`/api/v1/teacher/tests/${testId}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            setTestId(null);
+            try {
+                await apiFetch(`/teacher/tests/${testId}`, { method: 'DELETE' });
+                setTestId(null);
+            } catch (err) {
+                // игнорируем ошибку удаления старого черновика
+            }
         }
-        const res = await fetch('/api/v1/teacher/tests/generate', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                topic_id: Number(selectedTopic),
-                subject_id: user?.subject?.subject_id || 3,
-                class_id: Number(selectedClass),
-                title: testName,
-                question_count: count,
-                question_type: type
-            })
-        });
 
-        if (!res.ok) throw new Error('Ошибка генерации');
-        const data = await res.json();
+        try {
+            const data = await apiFetch<any>('/teacher/tests/generate', {
+                method: 'POST',
+                json: {
+                    topic_id: Number(selectedTopic),
+                    subject_id: user?.subject?.subject_id || 3,
+                    class_id: Number(selectedClass),
+                    title: testName,
+                    question_count: count,
+                    question_type: type
+                }
+            });
 
-        return {
-            test_id: data.test_id,
-            questions: (data.questions || []).map((q: any) => {
-                let frontType = q.type === 'numeric' ? 'math' : 'single_choice';
-                let optionTexts: string[] = [];
-                if (q.options && Array.isArray(q.options.options)) optionTexts = q.options.options;
+            return {
+                test_id: data.test_id,
+                questions: (data.questions || []).map((q: any) => {
+                    let frontType = q.type === 'numeric' ? 'math' : 'single_choice';
+                    let optionTexts: string[] = [];
+                    if (q.options && Array.isArray(q.options.options)) optionTexts = q.options.options;
 
-                const correctIdx = q.correct_option_index !== null && q.correct_option_index !== undefined ? [q.correct_option_index] : [];
+                    const correctIdx = q.correct_option_index !== null && q.correct_option_index !== undefined ? [q.correct_option_index] : [];
 
-                return {
-                    id: Math.random().toString(36).slice(2, 11),
-                    type: frontType,
-                    question: q.question || '',
-                    options: optionTexts.map((text, i) => ({ id: String(i), text, isCorrect: correctIdx.includes(i) })),
-                    correctAnswerText: q.numeric_answer !== null && q.numeric_answer !== undefined ? String(q.numeric_answer) : ''
-                };
-            })
-        };
+                    return {
+                        id: Math.random().toString(36).slice(2, 11),
+                        type: frontType,
+                        question: q.question || '',
+                        options: optionTexts.map((text, i) => ({ id: String(i), text, isCorrect: correctIdx.includes(i) })),
+                        correctAnswerText: q.numeric_answer !== null && q.numeric_answer !== undefined ? String(q.numeric_answer) : ''
+                    };
+                })
+            };
+        } catch (err) {
+            showToast(getErrorMessage(err), 'error');
+            return null;
+        }
     };
 
     const handleGenerateAI = async () => {
@@ -212,7 +206,9 @@ export default function TestCreatePage() {
                 setTestId(result.test_id);
                 showToast(`Сгенерировано ${result.questions.length} вопросов!`, 'success');
             }
-        } catch { showToast('Не удалось сгенерировать тест', 'error'); } finally { setIsGenerating(false); }
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     const handleGenerateSingleAI = async (qId: string) => {
@@ -227,7 +223,9 @@ export default function TestCreatePage() {
                 if (!testId && result.test_id) setTestId(result.test_id);
                 showToast('Вопрос сгенерирован ИИ!', 'success');
             }
-        } catch { showToast('Не удалось сгенерировать вопрос', 'error'); } finally { setGeneratingQuestionId(null); }
+        } finally {
+            setGeneratingQuestionId(null);
+        }
     };
 
     const handleAddQuestion = () => {
@@ -275,35 +273,25 @@ export default function TestCreatePage() {
         if (questions.length === 0) return showToast('Добавьте хотя бы один вопрос', 'error');
         if (!selectedTopic || !selectedClass) return showToast('Выберите класс и тему', 'error');
 
-        const token = localStorage.getItem('access_token');
-        if (!token) return;
         setIsSaving(true);
-
         try {
             let currentTestId = testId;
 
-            // 🔥 ЕСЛИ ТЕСТА НЕТ — СОЗДАЕМ ПУСТОЙ ЧЕРНОВИК (0 ВОПРОСОВ) 🔥
             if (!currentTestId) {
-                const genRes = await fetch('/api/v1/teacher/tests/generate', {
+                const genData = await apiFetch<{ test_id: number }>('/teacher/tests/generate', {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
+                    json: {
                         topic_id: Number(selectedTopic),
                         subject_id: user?.subject?.subject_id || 3,
                         class_id: Number(selectedClass),
-                        question_count: 0, // Создаем тест без вопросов
+                        question_count: 0,
                         question_type: null
-                    })
+                    }
                 });
-
-                if (!genRes.ok) throw new Error('Не удалось создать черновик теста. Проверьте класс и тему.');
-
-                const genData = await genRes.json();
                 currentTestId = genData.test_id;
                 setTestId(currentTestId);
             }
 
-            // 🔥 ТЕПЕРЬ СОХРАНЯЕМ РУЧНЫЕ ВОПРОСЫ (PUT) 🔥
             const payload = {
                 topic_id: Number(selectedTopic),
                 questions: questions.map(q => {
@@ -319,22 +307,18 @@ export default function TestCreatePage() {
                 })
             };
 
-            const res = await fetch(`/api/v1/teacher/tests/${currentTestId}`, {
+            await apiFetch(`/teacher/tests/${currentTestId}`, {
                 method: 'PUT',
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                json: payload
             });
-
-            if (!res.ok) {
-                const errText = await res.text();
-                throw new Error(errText || 'Ошибка сохранения');
-            }
 
             showToast(isEditing ? 'Изменения сохранены!' : 'Тест сохранён!', 'success');
             setTimeout(() => navigate('/teacher/tests'), 1500);
-        } catch (err: any) {
-            showToast(err.message || 'Не удалось сохранить тест', 'error');
-        } finally { setIsSaving(false); }
+        } catch (err) {
+            showToast(getErrorMessage(err), 'error');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (

@@ -5,7 +5,7 @@ import { ChevronLeft, CheckCircle2, XCircle, Award, AlertCircle } from 'lucide-r
 import { Button } from "../../@/components/ui/button";
 import bgImage from '../assets/bg.png';
 import { apiFetch } from '../utils/api';
-import { getErrorMessage } from '../utils/errors';
+import { getErrorMessage } from '../utils/Errors';
 
 interface TestQuestion {
     question_id: number;

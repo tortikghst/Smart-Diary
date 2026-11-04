@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import bgImage from '@/assets/bg.png';
 import { useState } from "react";
 import { apiFetch, auth } from '../utils/api';
-import { getErrorMessage } from '../utils/errors';
+import { getErrorMessage } from '../utils/Errors.ts';
 
 export default function Login() {
     const navigate = useNavigate();

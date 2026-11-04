@@ -5,7 +5,7 @@ import { ChevronLeft, PlayCircle, Star } from 'lucide-react';
 import { Button } from "../../@/components/ui/button";
 import bgImage from '../assets/bg.png';
 import { apiFetch } from '../utils/api';
-import { getErrorMessage } from '../utils/errors';
+import { getErrorMessage } from '../utils/Errors';
 
 interface AvailableTest {
     test_id: number;

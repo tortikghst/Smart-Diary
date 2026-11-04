@@ -3,38 +3,14 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import bgImage from '@/assets/bg.png';
 import homeIcon from '@/assets/Home-Logo.svg';
+import { apiFetch } from '../utils/api';
+import { getErrorMessage } from '../utils/Errors';
 
-interface Student {
-    student_id: number;
-    full_name: string;
-}
-
-interface Grade {
-    student_id: number;
-    value: number;
-}
-
-interface Lesson {
-    lesson_id: string;
-    lesson_date: string;
-    topic_title: string | null;
-    grades: Grade[];
-}
-
-interface JournalData {
-    students: Student[];
-    lessons: Lesson[];
-    page: number;
-    total_pages: number;
-}
-
-interface UserProfile {
-    full_name: string;
-    subject?: {
-        subject_id: number;
-        name: string;
-    };
-}
+interface Student { student_id: number; full_name: string; }
+interface Grade { student_id: number; value: number; }
+interface Lesson { lesson_id: string; lesson_date: string; topic_title: string | null; grades: Grade[]; }
+interface JournalData { students: Student[]; lessons: Lesson[]; page: number; total_pages: number; }
+interface UserProfile { full_name: string; subject?: { subject_id: number; name: string; }; }
 
 export default function JournalPage() {
     const { classId } = useParams();
@@ -53,37 +29,25 @@ export default function JournalPage() {
 
     useEffect(() => {
         const fetchJournalData = async () => {
-            const token = localStorage.getItem('access_token');
-            if (!token) return;
-
             setIsLoading(true);
             setErrorMsg(null);
 
             try {
-                const userRes = await fetch('/api/v1/users/me', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                if (!userRes.ok) throw new Error('Не удалось загрузить профиль');
-                const userData: UserProfile = await userRes.json();
+                const userData = await apiFetch<UserProfile>('/users/me');
                 setUser(userData);
 
                 if (!userData.subject) {
-                    throw new Error("В вашем профиле не указан предмет. Журнал недоступен.");
+                    setErrorMsg("В вашем профиле не указан предмет. Журнал недоступен.");
+                    setIsLoading(false);
+                    return;
                 }
 
-                const journalRes = await fetch(`/api/v1/classes/${classId}/journal?subject_id=${userData.subject.subject_id}&page=${page}&page_size=10`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                if (!journalRes.ok) {
-                    throw new Error(`Ошибка загрузки журнала: ${journalRes.status}`);
-                }
-
-                const journalData: JournalData = await journalRes.json();
+                const journalData = await apiFetch<JournalData>(
+                    `/classes/${classId}/journal?subject_id=${userData.subject.subject_id}&page=${page}&page_size=10`
+                );
                 setData(journalData);
-            } catch (err: any) {
-                setErrorMsg(err.message === 'Failed to fetch' ? 'Сервер недоступен' : err.message);
+            } catch (err) {
+                setErrorMsg(getErrorMessage(err));
             } finally {
                 setIsLoading(false);
             }
@@ -92,15 +56,8 @@ export default function JournalPage() {
         fetchJournalData();
     }, [classId, page]);
 
-    const container = {
-        hidden: { opacity: 0 },
-        show: { opacity: 1, transition: { staggerChildren: 0.1 } }
-    };
-
-    const item = {
-        hidden: { opacity: 0, y: 30 },
-        show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 100 } }
-    };
+    const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } };
+    const item = { hidden: { opacity: 0, y: 30 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 100 } } };
 
     const formatDate = (dateString: string) => {
         if (!dateString) return '';
@@ -132,7 +89,6 @@ export default function JournalPage() {
             <div className="fixed inset-0 bg-cover bg-center opacity-40 z-0" style={{ backgroundImage: `url(${bgImage})` }} />
 
             <motion.div variants={container} initial="hidden" animate="show" className="relative z-10 w-full max-w-[440px] flex flex-col flex-1">
-
                 <motion.header variants={item} className="bg-[#B2CDE0] px-6 py-4 rounded-b-[40px] shadow-sm flex items-center justify-between shrink-0 z-20">
                     <button onClick={() => navigate(`/teacher/classes/${classId}`, { state: location.state })} className="w-12 h-12 bg-[#94A9BE] rounded-xl flex items-center justify-center p-2 hover:bg-[#859bb1] transition-colors">
                         <img src={homeIcon} alt="Home" className="w-full h-full object-contain" />
@@ -163,7 +119,6 @@ export default function JournalPage() {
                     </div>
                 ) : (
                     <motion.div variants={item} className="mt-4 px-4 flex flex-col">
-
                         <AnimatePresence mode="wait">
                             <motion.div
                                 key={page}
@@ -183,16 +138,13 @@ export default function JournalPage() {
                                         <th className="sticky left-0 bg-[#F4F8F8]/95 backdrop-blur-md p-3 text-[12px] font-extrabold text-[#596070] border-b border-[#C9D9E6] min-w-[130px] z-20 align-bottom h-40">
                                             Ученик
                                         </th>
-
                                         {data.lessons.map(lesson => (
                                             <th key={lesson.lesson_id} className="p-0 border-b border-[#C9D9E6] text-center min-w-[64px] h-40 align-bottom">
-                                                {/* Магия вертикального текста */}
                                                 <div className="[writing-mode:vertical-rl] rotate-180 flex items-start justify-start h-full py-2 px-1 mx-auto w-full">
                                                         <span className="font-extrabold text-[12px] text-[#596070] shrink-0">
                                                             {formatDate(lesson.lesson_date)}
                                                         </span>
                                                     {lesson.topic_title && (
-                                                        // Убрали truncate и max-h, добавили whitespace-normal для переноса
                                                         <span className="text-[10px] font-bold text-[#859bb1] mt-2 opacity-80 leading-tight whitespace-normal break-words">
                                                                 {lesson.topic_title}
                                                             </span>
