@@ -1145,7 +1145,7 @@ class UserRepository:
                 select(TestModel, PlanTopicModel.title, StudyPlanModel.class_id)
                 .join(PlanTopicModel, TestModel.topic_id == PlanTopicModel.topic_id)
                 .join(StudyPlanModel, PlanTopicModel.plan_id == StudyPlanModel.plan_id)
-                .where(StudyPlanModel.class_id.in_(class_ids))
+                .where(StudyPlanModel.class_id.in_(class_ids),TestModel.status != "prep")
             )
             tests_res = await db.execute(tests_query)
             for t_obj, title, cid in tests_res.all():

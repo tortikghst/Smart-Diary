@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
-
+import time
 from scr.database import get_db_session
 from scr.repositories.repositorie import UserRepository
 from scr.api.auth_deps import require_role
@@ -11,8 +11,9 @@ from scr.schemas.analytics_schemas import ClassAnalyticsResponse
 from scr.api.auth_deps_own import check_class_owner
 
 journal_router = APIRouter(prefix="/classes", tags=["Электронный Журнал"])
-
-
+# Глобальный кэш для аналитики: ключ -> (timestamp, data)
+_analytics_cache = {}
+CACHE_TTL = 300  # 5 минут
 @journal_router.get(
     "/{class_id}/students",
     response_model=list[ClassStudentSchema],
@@ -60,7 +61,6 @@ async def get_journal(
     )
     return journal_data
 
-
 @journal_router.get(
     "/{class_id}/analytics",
     response_model=ClassAnalyticsResponse,
@@ -69,27 +69,29 @@ async def get_journal(
 async def get_class_analytics(
     class_id: int,
     _: None = Depends(check_class_owner),
-    date_from: Optional[date] = Query(
-        None, description="Начало периода (по умолчанию -30 дней)"
-    ),
-    date_to: Optional[date] = Query(
-        None, description="Конец периода (по умолчанию сегодня)"
-    ),
+    date_from: Optional[date] = Query(None, description="Начало периода (по умолчанию -30 дней)"),
+    date_to: Optional[date] = Query(None, description="Конец периода (по умолчанию сегодня)"),
     current_user: dict = Depends(require_role(["teacher", "admin"])),
     db: AsyncSession = Depends(get_db_session),
 ):
-    """
-    Получить аналитику успеваемости класса («Портрет класса» и «Карта пробелов») (Страница 5 Контракта).
-    Вычисляет распределение оценок, средние показатели по темам и самую слабую зону класса.
-    """
     teacher_id = int(current_user["sub"])
 
-    # Выставляем дефолтные 30 дней, если параметры не переданы фронтендом (Страница 5 Контракта)
     if not date_to:
         date_to = date.today()
     if not date_from:
         date_from = date_to - timedelta(days=30)
 
+    # 🔥 КЭШИРОВАНИЕ АНАЛИТИКИ 🔥
+    cache_key = f"analytics_{teacher_id}_{class_id}_{date_from}_{date_to}"
+    now = time.time()
+
+    if cache_key in _analytics_cache:
+        cached_time, cached_data = _analytics_cache[cache_key]
+        if now - cached_time < CACHE_TTL:
+            print(f"📦 [ANALYTICS-CACHE] Отдаем аналитику из кэша для класса {class_id}")
+            return cached_data
+
+    # Если кэша нет или он устарел — генерируем данные
     analytics_data = await UserRepository.get_class_analytics_data(
         db=db,
         class_id=class_id,
@@ -104,4 +106,6 @@ async def get_class_analytics(
             detail="Не удалось собрать аналитику. Проверьте, закреплен ли за вами этот класс.",
         )
 
+    # Сохраняем в кэш
+    _analytics_cache[cache_key] = (now, analytics_data)
     return analytics_data
