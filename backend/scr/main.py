@@ -27,8 +27,7 @@ api_router.include_router(journal_router)
 api_router.include_router(student_router)
 api_router.include_router(tests_router)
 api_router.include_router(seating_router)
-api_router.include_router(bot_router)
-
+#api_router.include_router(bot_router) 
 
 async def lifespan(app: FastAPI):
     await init_db()
@@ -44,7 +43,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",      # Vite dev
         "http://localhost:3000",      # если фронт на CRA
-        "https://<адрес-фронта>",     # ← подставь боевой адрес
+        "https://sovolud.ru",
+        "https://www.sovolud.ru",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -52,3 +52,4 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+app.include_router(bot_router)
