@@ -79,7 +79,7 @@ export default function StudentTestsPage() {
                                     <div className="flex justify-between items-start mb-3">
                                         <div className="flex-1 pr-2">
                                             <p className="text-[11px] font-extrabold text-[#94A9BE] uppercase tracking-wider mb-1">{test.subject_name}</p>
-                                            <h3 className="text-[16px] font-extrabold text-[#3b506c] leading-tight">{test.topic_title}</h3>
+                                            <h3 className="text-[16px] font-extrabold text-[#3b506c] leading-tight">{test.topic_title || 'Без названия'}</h3>
                                         </div>
                                         {test.best_percent !== null && (
                                             <div className="bg-[#EBF1F1] text-[#94A9BE] px-2.5 py-1 rounded-lg flex items-center gap-1 shrink-0">

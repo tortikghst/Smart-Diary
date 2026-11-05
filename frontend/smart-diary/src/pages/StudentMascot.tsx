@@ -7,19 +7,19 @@ import { Card, CardContent } from "../../@/components/ui/card";
 import bgImage from '../assets/bg.png';
 
 // --- ИМПОРТЫ КАРТИНОК МАСКОТОВ ---
-import mathImg from '../assets/mascots/math.png';
-import russianImg from '../assets/mascots/russian.png';
-import literatureImg from '../assets/mascots/literature.png';
-import historyImg from '../assets/mascots/history.png';
-import geographyImg from '../assets/mascots/geography.png';
-import chemistryImg from '../assets/mascots/chemistry.png';
-import informaticsImg from '../assets/mascots/informatics.png';
-import peImg from '../assets/mascots/PE.png';
-import trudImg from '../assets/mascots/trud.png';
-import defaultImg from '../assets/mascots/default.png';
-import phisyc from '../assets/mascots/phisycs.png';
-import biol from '../assets/mascots/biol.png';
-import english from '../assets/mascots/english.png';
+import mathImg from '../assets/mascots/math.webp';
+import russianImg from '../assets/mascots/russian.webp';
+import literatureImg from '../assets/mascots/literature.webp';
+import historyImg from '../assets/mascots/history.webp';
+import geographyImg from '../assets/mascots/geography.webp';
+import chemistryImg from '../assets/mascots/chemistry.webp';
+import informaticsImg from '../assets/mascots/informatics.webp';
+import peImg from '../assets/mascots/PE.webp';
+import trudImg from '../assets/mascots/trud.webp';
+import defaultImg from '../assets/mascots/default.webp';
+import phisyc from '../assets/mascots/phisycs.webp';
+import biol from '../assets/mascots/biol.webp';
+import english from '../assets/mascots/english.webp';
 interface UserProfile {
     full_name: string;
     class_id: number;

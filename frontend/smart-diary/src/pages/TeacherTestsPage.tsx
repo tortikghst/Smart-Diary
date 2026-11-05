@@ -289,7 +289,7 @@ export default function TeacherTestsPage() {
                                                     }`}
                                                 />
                                                 <span className="line-clamp-3 w-full break-words overflow-hidden px-1">
-                                                    {test.title}
+                                                    {test.title || test.topic_title || 'Без названия'}
                                                 </span>
                                             </motion.button>
                                         ))}
@@ -332,7 +332,7 @@ export default function TeacherTestsPage() {
                             {!publishMode ? (
                                 <>
                                     <h3 className="text-xl font-extrabold text-[#596070] text-center mb-1">
-                                        {selectedTest.topic_title}
+                                        {selectedTest.title || selectedTest.topic_title || 'Без названия'}
                                     </h3>
                                     <p className="text-center text-[#859bb1] font-bold text-xs mb-6">
                                         Статус: {selectedTest.status === 'draft' ? 'черновик' : 'опубликован'}
