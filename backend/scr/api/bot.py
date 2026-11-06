@@ -2,26 +2,13 @@ import httpx
 from fastapi import APIRouter, Request, HTTPException
 from scr.config import settings
 
-
 bot_router = APIRouter(tags=["Бот MAX"])
 
-# Куда отправлять сообщения
 MAX_API_URL = "https://botapi.max.ru/messages"
-
-# Ссылка на фронтенд (для кнопки в боте)
 MINI_APP_URL = "https://sovolud.ru"
-
 
 @bot_router.post("/webhook")
 async def max_bot_webhook(request: Request):
-    """
-    Вебхук для получения обновлений от MAX.
-
-    MAX присылает разные форматы:
-      - bot_started:     { update_type, chat_id, user: { user_id, ... }, timestamp }
-      - message_created: { update_type, message: { body: {text}, recipient: {chat_id}, sender: {user_id} }, ... }
-    Обрабатываем оба.
-    """
     data = await request.json()
     print(f"📩 [MAX-WEBHOOK] raw data: {data}")
 
@@ -36,22 +23,16 @@ async def max_bot_webhook(request: Request):
     user_id = None
 
     if chat_id is not None:
-        # формат bot_started
         user = data.get("user") or {}
         user_id = user.get("user_id")
     else:
-        # формат message_created
         message = data.get("message") or {}
         text = ((message.get("body") or {}).get("text") or "").strip()
         chat_id = (message.get("recipient") or {}).get("chat_id")
         user_id = (message.get("sender") or {}).get("user_id")
 
-    print(
-        f"📩 [MAX-WEBHOOK] type={update_type}, text={text!r}, "
-        f"chat_id={chat_id}, user_id={user_id}"
-    )
+    print(f"📩 [MAX-WEBHOOK] type={update_type}, text={text!r}, chat_id={chat_id}, user_id={user_id}")
 
-    # --- Отвечаем на bot_started и на /start (или "привет"/"start") ---
     is_start = (
         update_type == "bot_started"
         or text.startswith("/start")
@@ -60,6 +41,7 @@ async def max_bot_webhook(request: Request):
     if not is_start:
         return {"ok": True}
 
+    # Возвращаем надежный тип "link"
     payload = {
         "text": (
             "👋 Добро пожаловать в Умный дневник!\n\n"
@@ -75,7 +57,7 @@ async def max_bot_webhook(request: Request):
                             {
                                 "type": "link",
                                 "text": "🚀 Открыть Дневник",
-                                "url": MINI_APP_URL,
+                                "url": MINI_APP_URL
                             }
                         ]
                     ]
@@ -84,22 +66,18 @@ async def max_bot_webhook(request: Request):
         ],
     }
 
-    # --- chat_id / user_id идут В QUERY, токен — в заголовке Authorization (БЕЗ "Bearer") ---
     params = {}
     if chat_id:
         params["chat_id"] = chat_id
     elif user_id:
         params["user_id"] = user_id
     else:
-        print("❌ [MAX-WEBHOOK] нет ни chat_id, ни user_id — некуда отвечать")
         return {"ok": False}
 
     headers = {"Authorization": settings.MAX_BOT_TOKEN}
 
     async with httpx.AsyncClient() as client:
-        response = await client.post(
-            MAX_API_URL, params=params, json=payload, headers=headers
-        )
+        response = await client.post(MAX_API_URL, params=params, json=payload, headers=headers)
         print(f"📤 [MAX-WEBHOOK] MAX response: {response.status_code} {response.text}")
         if response.status_code != 200:
             return {"ok": False}

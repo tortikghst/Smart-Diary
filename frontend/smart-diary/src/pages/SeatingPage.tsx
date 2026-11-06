@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { DndContext, useDraggable, useDroppable, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, useDraggable, useDroppable, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { Button } from "../../@/components/ui/button.tsx";
 import bgImage from '@/assets/bg.png';
@@ -74,7 +74,7 @@ const SeatItem = ({ seat, student, onClick }: { seat: Seat, student: Student | n
         return (
             <div
                 ref={setDropRef}
-                className={`w-full h-12 rounded-[16px] bg-[#C9D9E6]/40 transition-all duration-200 ${
+                className={`w-full h-12 rounded-[16px] bg-[#C9D9E6]/40 transition-shadow duration-200 ${
                     isOver ? 'ring-2 ring-[#4A5568] scale-105 bg-[#C9D9E6]/80' : ''
                 }`}
             />
@@ -95,7 +95,8 @@ const SeatItem = ({ seat, student, onClick }: { seat: Seat, student: Student | n
             {...attributes}
             onClick={onClick}
             title={student.full_name}
-            className={`w-full h-12 rounded-[16px] flex flex-col justify-center items-center text-white shadow-sm transition-all touch-none cursor-grab active:cursor-grabbing bg-[#4A5568] relative px-1 ${
+            // 👇 Убрали transition-all, оставили только transition-shadow
+            className={`w-full h-12 rounded-[16px] flex flex-col justify-center items-center text-white shadow-sm transition-shadow touch-none cursor-grab active:cursor-grabbing bg-[#4A5568] relative px-1 ${
                 isOver ? 'ring-2 ring-[#94A9BE] scale-105' : ''
             }`}
         >
@@ -148,13 +149,12 @@ export default function SeatingPage() {
         setTimeout(() => setToast(null), 3000);
     };
 
-    // 👇 ИСПРАВЛЕННЫЕ СЕНСОРЫ ДЛЯ МОБИЛОК 👇
+    // 👇 ИДЕАЛЬНЫЙ СЕНСОР ДЛЯ МОБИЛОК И МЫШКИ 👇
     const sensors = useSensors(
-        useSensor(MouseSensor, {
-            activationConstraint: { distance: 5 },
-        }),
-        useSensor(TouchSensor, {
-            activationConstraint: { delay: 200, tolerance: 5 },
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8, // Начинаем тащить только после сдвига на 8px
+            },
         })
     );
 
