@@ -25,8 +25,7 @@
 
 <br />
 
-<!-- Замените на имя вашего главного скринкаста -->
-<img src="docs/demo.gif" width="760" alt="Демо Умного дневника" />
+🎬 **[Смотреть скринкаст для ученика](docs/screencast_student.mp4)** · **[Смотреть скринкаст для учителя](docs/screencast_teacher_1.mp4)**
 
 *Хакатонный MVP команды «Совёнки» 🦉*
 
@@ -71,18 +70,16 @@
 
 ## 🎬 Демо
 
-<!-- Подставьте реальные имена файлов из папки docs -->
-
 <table>
   <tr>
     <td align="center" width="50%">
-      <b>👩‍🏫 Учитель</b><br />
-      <img src="docs/demo-teacher.gif" alt="Демо для учителя" />
+      <h3>👩‍🏫 Учитель</h3>
+      <a href="docs/screencast_teacher_1.mp4"><b>▶️ Смотреть скринкаст</b></a>
       <br /><sub>Аналитика класса → рассадка → ИИ-тест</sub>
     </td>
     <td align="center" width="50%">
-      <b>🧒 Ученик</b><br />
-      <img src="docs/demo-student.gif" alt="Демо для ученика" />
+      <h3>🧒 Ученик</h3>
+      <a href="docs/screencast_student.mp4"><b>▶️ Смотреть скринкаст</b></a>
       <br /><sub>Тест → разбор ошибок → долги → огонёк</sub>
     </td>
   </tr>
@@ -141,12 +138,12 @@
   <img src="frontend/smart-diary/src/assets/mascots/history.webp" width="90" alt="История" />
   <img src="frontend/smart-diary/src/assets/mascots/geography.webp" width="90" alt="География" />
   <img src="frontend/smart-diary/src/assets/mascots/chemistry.webp" width="90" alt="Химия" />
+  <img src="frontend/smart-diary/src/assets/mascots/biol.webp" width="90" alt="Биология" />
   <br />
   <img src="frontend/smart-diary/src/assets/mascots/phisycs.webp" width="90" alt="Физика" />
   <img src="frontend/smart-diary/src/assets/mascots/informatics.webp" width="90" alt="Информатика" />
   <img src="frontend/smart-diary/src/assets/mascots/PE.webp" width="90" alt="Физкультура" />
   <img src="frontend/smart-diary/src/assets/mascots/trud.webp" width="90" alt="Труд" />
-  <img src="frontend/smart-diary/src/assets/mascots/biol.webp" width="90" alt="Биология" />
   <img src="frontend/smart-diary/src/assets/mascots/english.webp" width="90" alt="Английский" />
   <img src="frontend/smart-diary/src/assets/mascots/default.webp" width="90" alt="По умолчанию" />
 </p>
@@ -211,55 +208,65 @@ docker compose up --build
 
 ## 📚 Проектная документация
 
-<details>
-<summary><b>Use case</b>: роли и сценарии, где участвует ИИ</summary>
 
-<img src="docs/UseCase.png" alt="Use case" width="800" />
+<details>
+<summary>👉 <b><ins>Use case</ins></b> — роли и сценарии, где участвует ИИ <i>(нажмите, чтобы раскрыть)</i></summary>
+
+<p align="center"><img src="docs/UseCase.png" alt="Use case" width="100%" /></p>
 
 </details>
 
 <details>
-<summary><b>User flow</b>: пять ключевых сценариев для каждой персоны</summary>
+<summary>👉 <b><ins>User flow ученика</ins></b> — пять ключевых сценариев <i>(нажмите, чтобы раскрыть)</i></summary>
 
-| Ученик | Учитель |
-|:---:|:---:|
-| <img src="docs/StudentFlow.png" alt="User flow ученика" /> | <img src="docs/TeacherFlow.png" alt="User flow учителя" /> |
+<p align="center"><img src="docs/StudentFlow.png" alt="User flow ученика" width="100%" /></p>
 
 </details>
 
 <details>
-<summary><b>Site map</b></summary>
+<summary>👉 <b><ins>User flow учителя</ins></b> — пять ключевых сценариев <i>(нажмите, чтобы раскрыть)</i></summary>
 
-| Ученик | Учитель |
-|:---:|:---:|
-| <img src="docs/StudentSiteMap.png" alt="Site map ученика" /> | <img src="docs/TeacherSiteMap.png" alt="Site map учителя" /> |
+<p align="center"><img src="docs/TeacherFlow.png" alt="User flow учителя" width="100%" /></p>
 
 </details>
 
 <details>
-<summary><b>Логика проверки тестов и начисления баллов</b></summary>
+<summary>👉 <b><ins>Site map ученика</ins></b> — карта экранов <i>(нажмите, чтобы раскрыть)</i></summary>
 
-<img src="docs/proverka.png" alt="Логика проверки" width="800" />
+<p align="center"><img src="docs/StudentSiteMap.png" alt="Site map ученика" width="100%" /></p>
+
+</details>
+
+<details>
+<summary>👉 <b><ins>Site map учителя</ins></b> — карта экранов <i>(нажмите, чтобы раскрыть)</i></summary>
+
+<p align="center"><img src="docs/TeacherSiteMap.png" alt="Site map учителя" width="100%" /></p>
+
+</details>
+
+<details>
+<summary>👉 <b><ins>Логика проверки тестов</ins></b> — как начисляются баллы <i>(нажмите, чтобы раскрыть)</i></summary>
+
+<p align="center"><img src="docs/proverka.png" alt="Логика проверки" width="100%" /></p>
 
 Для каждого вопроса считается `score_i ∈ [0; 1]`, итог: `percent = floor(Σ score_i / N · 100)`.
-
 Для множественного выбора частичный балл считается так: `max(0, (верных − неверных) / всего_верных)`. Результат пишется в `test_attempts`.
 
 </details>
 
 <details>
-<summary><b>Автоматическое закрытие долгов</b></summary>
+<summary>👉 <b><ins>Автоматическое закрытие долгов</ins></b> — как долги закрываются сами <i>(нажмите, чтобы раскрыть)</i></summary>
 
-<img src="docs/Debts.png" alt="Автозакрытие долгов" width="800" />
+<p align="center"><img src="docs/Debts.png" alt="Автозакрытие долгов" width="100%" /></p>
 
 Долг закрывается, когда в новой выгрузке ЕРИСО КО появляется оценка ≥ 3, либо вручную учителем. Операция идемпотентна (`SELECT … FOR UPDATE`), каждое действие пишется в `audit_log` / `sync_log`.
 
 </details>
 
 <details>
-<summary><b>Сервисная карта</b></summary>
+<summary>👉 <b><ins>Сервисная карта</ins></b> — как связаны сервисы <i>(нажмите, чтобы раскрыть)</i></summary>
 
-<img src="docs/ServiceCard.png" alt="Сервисная карта" width="800" />
+<p align="center"><img src="docs/ServiceCard.png" alt="Сервисная карта" width="100%" /></p>
 
 </details>
 
