@@ -25,7 +25,20 @@
 
 <br />
 
-🎬 **[Смотреть скринкаст для ученика](docs/screencast_student.mp4)** · **[Смотреть скринкаст для учителя](docs/screencast_teacher_1.mp4)**
+<div align="center">
+  <b>👩‍🏫 Глазами учителя (Аналитика → Рассадка → ИИ-тест)</b>
+  <br/>
+  <!-- Убедись, что видео лежат в папке docs/ -->
+  <video src="docs/screencast_teacher_1.mp4" autoplay loop muted playsinline width="100%"></video>
+</div>
+
+<br/>
+
+<div align="center">
+  <b>🧒 Глазами ученика (Тест → Разбор → Долги → Огонёк)</b>
+  <br/>
+  <video src="docs/screencast_student.mp4" autoplay loop muted playsinline width="100%"></video>
+</div>
 
 *Хакатонный MVP команды «Совёнки» 🦉*
 
