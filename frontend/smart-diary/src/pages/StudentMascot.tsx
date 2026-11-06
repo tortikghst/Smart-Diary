@@ -71,13 +71,12 @@ const getMascotImage = (subjectName: string) => {
     return defaultImg;
 };
 
-// ФУНКЦИЯ ОПРЕДЕЛЕНИЯ ЦВЕТА ПОРТАЛА
 const getPortalColor = (streak: number) => {
-    if (streak === 0) return { glow: "bg-gray-400/30", ring: "border-gray-400/50", text: "text-gray-500" };
-    if (streak < 5) return { glow: "bg-blue-400/40", ring: "border-blue-400/60", text: "text-blue-500" };
-    if (streak < 10) return { glow: "bg-green-400/40", ring: "border-green-400/60", text: "text-green-500" };
-    if (streak < 20) return { glow: "bg-orange-500/50", ring: "border-orange-500/80", text: "text-orange-500" };
-    return { glow: "bg-purple-500/60", ring: "border-purple-500/80", text: "text-purple-500" };
+    if (streak === 0) return { text: "text-gray-500" };
+    if (streak < 5) return { text: "text-blue-500" };
+    if (streak < 10) return { text: "text-green-500" };
+    if (streak < 20) return { text: "text-orange-500" };
+    return { text: "text-purple-500" };
 };
 
 export default function StudentMascot() {
@@ -243,61 +242,39 @@ export default function StudentMascot() {
                     <Card className="bg-white/80 backdrop-blur-md rounded-[40px] shadow-sm border-none overflow-hidden pt-6 pb-6 px-4">
                         <CardContent className="flex flex-col items-center p-0">
 
-                            {/* Плашка с именем маскота */}
+                            {/* ДИНАМИЧЕСКАЯ ПЛАШКА С ИМЕНЕМ */}
                             <div className="bg-[#EBF1F1] text-[#596070] px-4 py-1.5 rounded-full font-extrabold text-[13px] mb-2 shadow-sm border border-[#C9D9E6] flex items-center gap-1.5 uppercase tracking-wider">
                                 <Sparkles size={14} className="text-[#94A9BE]" />
-                                Соволудь
+                                Соволудь-{currentSubjectName.toLowerCase()}
                             </div>
 
                             <h2 className={`text-[34px] font-black mb-2 transition-colors duration-500 ${portalColors.text}`}>
                                 {getDaysText(mascot?.current_streak || 0)}!
                             </h2>
 
-                            {/* МАСКОТ С ПОРТАЛОМ */}
+                            {/* САМ МАСКОТ (Без партиклов, просто парит) */}
                             <div className="w-[240px] h-[240px] flex items-center justify-center relative my-2">
                                 {isMascotLoading || !currentImage ? (
                                     <div className="w-12 h-12 border-4 border-[#B2CDE0] border-t-transparent rounded-full animate-spin"></div>
                                 ) : (
-                                    <>
-                                        {/* Свечение (Глоу) */}
-                                        <motion.div 
-                                            animate={{ scale: [1, 1.1, 1], opacity: [0.6, 0.9, 0.6] }}
-                                            transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-                                            className={`absolute inset-0 m-auto w-[180px] h-[180px] rounded-full blur-2xl transition-colors duration-700 ${portalColors.glow}`}
-                                        />
-                                        
-                                        {/* Вращающиеся кольца портала */}
-                                        <motion.div 
-                                            animate={{ rotate: 360 }}
-                                            transition={{ repeat: Infinity, duration: 15, ease: "linear" }}
-                                            className={`absolute inset-0 m-auto w-[200px] h-[200px] rounded-full border-[3px] border-dashed transition-colors duration-700 ${portalColors.ring}`}
-                                        />
-                                        <motion.div 
-                                            animate={{ rotate: -360 }}
-                                            transition={{ repeat: Infinity, duration: 25, ease: "linear" }}
-                                            className={`absolute inset-0 m-auto w-[220px] h-[220px] rounded-full border border-dotted opacity-50 transition-colors duration-700 ${portalColors.ring}`}
-                                        />
-
-                                        {/* Сам маскот */}
-                                        <motion.div
-                                            animate={{ y: [0, -10, 0] }}
-                                            transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-                                            className="relative z-10 w-full h-full flex items-center justify-center p-4"
-                                        >
-                                            <AnimatePresence mode="wait">
-                                                <motion.img
-                                                    key={currentSubjectName}
-                                                    initial={{ opacity: 0, scale: 0.8 }}
-                                                    animate={{ opacity: 1, scale: 1 }}
-                                                    exit={{ opacity: 0, scale: 0.8 }}
-                                                    transition={{ duration: 0.3 }}
-                                                    src={currentImage}
-                                                    alt="Маскот"
-                                                    className="w-full h-full object-contain drop-shadow-2xl"
-                                                />
-                                            </AnimatePresence>
-                                        </motion.div>
-                                    </>
+                                    <motion.div
+                                        animate={{ y: [0, -10, 0] }}
+                                        transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+                                        className="relative z-10 w-full h-full flex items-center justify-center p-4"
+                                    >
+                                        <AnimatePresence mode="wait">
+                                            <motion.img
+                                                key={currentSubjectName}
+                                                initial={{ opacity: 0, scale: 0.8 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                exit={{ opacity: 0, scale: 0.8 }}
+                                                transition={{ duration: 0.3 }}
+                                                src={currentImage}
+                                                alt="Маскот"
+                                                className="w-full h-full object-contain drop-shadow-2xl"
+                                            />
+                                        </AnimatePresence>
+                                    </motion.div>
                                 )}
                             </div>
 

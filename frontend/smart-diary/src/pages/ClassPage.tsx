@@ -49,22 +49,46 @@ export default function ClassPage() {
     const [activeChart, setActiveChart] = useState<'bar' | 'pie'>('bar');
     const [topicIndex, setTopicIndex] = useState(0);
 
+    const [aiRecommendation, setAiRecommendation] = useState<string | null>(null);
+    const [isAiLoading, setIsAiLoading] = useState(true);
+
     useEffect(() => {
         const fetchAnalytics = async () => {
             setIsLoading(true);
             setError(null);
-
             try {
-                const result = await apiFetch<AnalyticsData>(`/classes/${classId}/analytics`);
-                setData(result);
+                const res = await apiFetch<AnalyticsData>(`/classes/${classId}/analytics`);
+                setData(res);
                 setTopicIndex(0);
             } catch (err) {
+                console.error("Ошибка аналитики:", err);
                 setError(getErrorMessage(err));
             } finally {
                 setIsLoading(false);
             }
         };
         fetchAnalytics();
+    }, [classId]);
+
+    useEffect(() => {
+        const fetchAi = async () => {
+            setIsAiLoading(true);
+            try {
+                const res = await apiFetch<{ ai_recommendation: string }>(`/classes/${classId}/analytics/recommendation`);
+                if (res.ai_recommendation) {
+                    setAiRecommendation(res.ai_recommendation);
+                }
+            } catch (err) {
+                console.error("Ошибка ИИ:", err);
+                if (data?.ai_recommendation) {
+                    setAiRecommendation(data.ai_recommendation);
+                }
+            } finally {
+                setIsAiLoading(false);
+            }
+        };
+        fetchAi();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [classId]);
 
     useEffect(() => {
@@ -213,9 +237,7 @@ export default function ClassPage() {
                                     transition={{ duration: 0.3 }}
                                     className="flex-1 flex flex-col w-full"
                                 >
-                                    {/* ОБЛАСТЬ ГРАФИКА */}
                                     <div className="flex w-full h-[200px]">
-                                        {/* Ось Y */}
                                         <div className="flex flex-col justify-between text-[10px] font-bold text-[#859bb1] pr-2 h-[160px] items-end shrink-0 pb-1">
                                             <span>5.0</span>
                                             <span>4.0</span>
@@ -224,12 +246,10 @@ export default function ClassPage() {
                                             <span>1.0</span>
                                         </div>
                                         
-                                        {/* Скроллируемая область со столбиками */}
                                         <div 
                                             ref={scrollRef}
                                             className="flex-1 overflow-x-auto [&::-webkit-scrollbar]:hidden relative h-[160px] border-l border-b border-gray-300 pb-1 snap-x snap-mandatory"
                                         >
-                                            {/* Сетка (линии на фоне) */}
                                             <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
                                                 <div className="border-b border-gray-400 w-full h-0"></div>
                                                 <div className="border-b border-gray-400 w-full h-0"></div>
@@ -246,19 +266,19 @@ export default function ClassPage() {
                                                         <div
                                                             key={topic.topic_id}
                                                             onClick={() => setTopicIndex(index)}
-                                                            className="flex flex-col items-center justify-end h-full w-[60px] cursor-pointer group snap-center shrink-0"
+                                                            className="flex flex-col items-center justify-end h-full w-[72px] cursor-pointer group snap-center shrink-0"
                                                         >
                                                             <motion.div
                                                                 initial={{ height: 0 }}
                                                                 animate={{ height: heightPercent }}
                                                                 transition={{ delay: 0.1 + index * 0.05, type: "spring", stiffness: 80 }}
-                                                                className={`w-[80%] rounded-t-md relative transition-colors ${
+                                                                className={`w-[75%] rounded-t-md relative transition-colors ${
                                                                     isActive ? 'bg-[#596070] shadow-md' : 'bg-[#94A9BE] group-hover:bg-[#596070]'
                                                                 }`}
                                                             >
-                                                                {/* Тултип при наведении */}
-                                                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-[#596070] text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none">
-                                                                    Балл: {topic.avg_score}
+                                                                {/* Тултип теперь ВНУТРИ столбика, чтобы не обрезался */}
+                                                                <div className="absolute top-1 left-1/2 -translate-x-1/2 bg-[#1e293b] text-white text-[10px] font-bold py-0.5 px-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none shadow-md">
+                                                                    {topic.avg_score} б.
                                                                 </div>
                                                             </motion.div>
                                                         </div>
@@ -268,13 +288,13 @@ export default function ClassPage() {
                                         </div>
                                     </div>
 
-                                    {/* ПОДПИСИ ТЕМ (Под графиком) */}
                                     <div className="flex w-full mt-2 pl-[28px]">
                                         <div className="flex-1 overflow-x-auto [&::-webkit-scrollbar]:hidden">
                                             <div className="flex gap-2 min-w-max px-2">
                                                 {data?.topics_avg?.map((topic, index) => (
-                                                    <div key={topic.topic_id} className="w-[60px] flex justify-center snap-center">
-                                                        <span className={`text-[10px] font-bold text-center leading-[1.1] line-clamp-3 w-full break-words hyphens-auto ${
+                                                    <div key={topic.topic_id} className="w-[72px] flex justify-center snap-center">
+                                                        {/* Убрали break-words, чтобы слова не рвались посередине */}
+                                                        <span className={`text-[10px] font-bold text-center leading-[1.1] line-clamp-3 w-full ${
                                                             index === topicIndex ? 'text-[#596070]' : 'text-[#859bb1]'
                                                         }`}>
                                                             {topic.topic_title}
@@ -339,9 +359,18 @@ export default function ClassPage() {
                         <h3 className="text-[20px] font-extrabold text-[#596070] mb-3">
                             РЕКОМЕНДАЦИИ ИИ
                         </h3>
-                        <p className="text-[13px] text-[#859bb1] font-bold leading-relaxed mb-6">
-                            {isLoading ? "Анализируем..." : data?.ai_recommendation || 'Проблем не обнаружено. Отличная работа!'}
-                        </p>
+                        
+                        {isAiLoading ? (
+                            <div className="flex flex-col items-center justify-center h-20">
+                                <div className="w-6 h-6 border-4 border-[#94A9BE] border-t-transparent rounded-full animate-spin mb-2"></div>
+                                <p className="text-[12px] font-bold text-[#859bb1]">ИИ анализирует данные...</p>
+                            </div>
+                        ) : (
+                            <p className="text-[13px] text-[#859bb1] font-bold leading-relaxed mb-6 min-h-[40px]">
+                                {aiRecommendation || 'Проблем не обнаружено. Отличная работа!'}
+                            </p>
+                        )}
+
                         <Button
                             onClick={() => navigate(`/teacher/classes/${classId}/seating`)}
                             className="w-full h-[60px] bg-[#C9D9E6] hover:bg-[#b5c8d8] text-[#596070] rounded-[30px] text-[18px] font-extrabold transition-all"

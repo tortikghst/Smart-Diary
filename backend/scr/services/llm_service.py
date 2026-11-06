@@ -1,5 +1,6 @@
 import json
 import httpx
+import traceback
 from scr.config import settings
 
 class YandexGPTService:
@@ -13,6 +14,8 @@ class YandexGPTService:
             "Authorization": f"Bearer {settings.LLM_API_KEY}",
             "Content-Type": "application/json",
             "X-Mlp-Provider": "openrouter",
+            "HTTP-Referer": "https://smart-diary.ru",
+            "X-Title": "Smart Diary"
         }
 
         if q_type in ("choice", "single_choice", "multiple_choice", "match"):
@@ -22,7 +25,6 @@ class YandexGPTService:
         else:
             type_instruction = "Сгенерируй вопросы разных типов: 'choice' и 'numeric'."
 
-        # 🔥 ОБНОВЛЕННЫЙ ПРОМПТ ДЛЯ ФГОС 🔥
         system_prompt = (
             f"Ты — опытный школьный методист, эксперт по ФГОС РФ. "
             f"Твоя задача — составить проверочную работу по предмету '{subject_name}' на тему '{topic}' для учеников средней школы. "
@@ -73,5 +75,58 @@ class YandexGPTService:
                 },
             },
         }
-        
-        # ... далее код отправки запроса без изменений ...
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(url, json=payload, headers=headers, timeout=60.0)
+                
+                if response.status_code != 200:
+                    print(f"🚨🚨🚨 CAILA СТАТУС: {response.status_code}", flush=True)
+                    print(f"🚨🚨🚨 ОТВЕТ: {response.text}", flush=True)
+                    return None
+
+                result = response.json()
+                raw_text = result["choices"][0]["message"]["content"].strip()
+                raw_text = raw_text.replace("```json", "").replace("```", "").strip()
+                
+                data = json.loads(raw_text)
+                return data.get("questions", [])
+                
+        except Exception as e:
+            print(f"🚨🚨🚨 ОШИБКА В LLM_SERVICE: {repr(e)}", flush=True)
+            traceback.print_exc()
+            return None
+
+    @staticmethod
+    async def generate_text(prompt: str) -> str | None:
+        url = "https://caila.io/api/providers/openrouter/v1/chat/completions"
+
+        headers = {
+            "Authorization": f"Bearer {settings.LLM_API_KEY}",
+            "Content-Type": "application/json",
+            "X-Mlp-Provider": "openrouter",
+        }
+
+        payload = {
+            "model": settings.LLM_MODEL,
+            "messages": [
+                {"role": "system", "content": "Ты — полезный школьный ИИ-ассистент. Отвечай кратко, понятно и только по делу. Без лишних приветствий и форматирования."},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0.4,
+        }
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(url, json=payload, headers=headers, timeout=60.0)
+                if response.status_code != 200:
+                    print(f"🚨🚨🚨 CAILA (TEXT) СТАТУС: {response.status_code}", flush=True)
+                    print(f"🚨🚨🚨 ОТВЕТ: {response.text}", flush=True)
+                    return None
+
+                result = response.json()
+                return result["choices"][0]["message"]["content"].strip()
+        except Exception as e:
+            print(f"🚨🚨🚨 ОШИБКА ПРИ ЗАПРОСЕ ТЕКСТА: {repr(e)}", flush=True)
+            traceback.print_exc()
+            return None
