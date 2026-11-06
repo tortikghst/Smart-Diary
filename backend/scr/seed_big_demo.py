@@ -2,7 +2,7 @@ import datetime
 import random
 import uuid
 
-from sqlalchemy import select, text
+from sqlalchemy import select, text, delete
 from scr.database import create_session
 from scr.model.model import (
     UserModel, UserRole, SchoolClassesModel, SubjectModel, ClassSubjectModel,
@@ -33,7 +33,7 @@ CLASSES_DATA = [
     (4, "8Б", 8), (5, "9А", 9), (6, "9Б", 9)
 ]
 
-# 8Б (4) и 9А (5) будут проблемными
+# 8Б (ID 4) и 9А (ID 5) будут проблемными
 PROBLEM_CLASSES = {4, 5}
 
 MALE_NAMES = ["Александр", "Дмитрий", "Максим", "Иван", "Артём", "Михаил", "Даниил", "Кирилл"]
@@ -158,15 +158,15 @@ async def seed_big_demo():
                                 # В проблемных классах много двоек и троек
                                 grade_val = random.choices([5, 4, 3, 2], weights=[5, 15, 40, 40])[0]
                             else:
-                                # В обычных классах норм
-                                grade_val = random.choices([5, 4, 3, 2], weights=[40, 40, 15, 5])[0]
+                                # В обычных классах норм (СДЕЛАЛИ ДВОЙКИ ОЧЕНЬ РЕДКИМИ)
+                                grade_val = random.choices([5, 4, 3, 2], weights=[50, 35, 13, 2])[0]
 
                             # Принудительно делаем "адекватные" долги для демо-ученика
                             if st_id == 1000 and demo_debts_created < 2:
-                                if sid == 1 and i == 1: # Долг по математике (Квадратные уравнения)
+                                if sid == 1 and i == 1: # Долг по математике
                                     grade_val = 2
                                     demo_debts_created += 1
-                                elif sid == 2 and i == 0: # Долг по русскому (Причастия)
+                                elif sid == 2 and i == 0: # Долг по русскому
                                     grade_val = 2
                                     demo_debts_created += 1
 
@@ -177,8 +177,8 @@ async def seed_big_demo():
                             ))
                             grade_id += 1
 
-                            # Создаем долг, если 2 (и это не физра/труд)
-                            if grade_val == 2 and sid not in [9, 10]:
+                            # Создаем долг, если 2 (и это не физра/труд). Сделали шанс долга ниже.
+                            if grade_val == 2 and sid not in [9, 10] and random.random() > 0.5:
                                 session.add(DebtModel(
                                     debt_id=debt_id, student_id=st_id, lesson_id=lesson_uuid,
                                     type=DebtType.GRADE2, resolved=False, academic_year=year

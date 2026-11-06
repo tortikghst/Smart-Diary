@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { DndContext, useDraggable, useDroppable, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, useDraggable, useDroppable, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { Button } from "../../@/components/ui/button.tsx";
 import bgImage from '@/assets/bg.png';
@@ -148,13 +148,18 @@ export default function SeatingPage() {
         setTimeout(() => setToast(null), 3000);
     };
 
+    // 👇 ИСПРАВЛЕННЫЕ СЕНСОРЫ ДЛЯ МОБИЛОК 👇
     const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+        useSensor(MouseSensor, {
+            activationConstraint: { distance: 5 },
+        }),
+        useSensor(TouchSensor, {
+            activationConstraint: { delay: 200, tolerance: 5 },
+        })
     );
 
     const fetchSeating = async () => {
         try {
-            // 1. Если имя класса не передано, подтягиваем из списка классов
             if (!location.state?.className) {
                 try {
                     const classesData = await apiFetch<TeacherClass[]>('/teacher/classes');
@@ -166,18 +171,15 @@ export default function SeatingPage() {
                 }
             }
 
-            // 2. Загружаем рассадку (если 404 — значит её еще нет, это нормально)
             try {
                 const seatingData = await apiFetch<SeatingData>(`/seating/${classId}`);
                 setData(seatingData);
                 setTempRows(seatingData.layout_json.grid?.rows || 5);
                 setTempDesks(Math.ceil((seatingData.layout_json.grid?.cols || 6) / 2));
             } catch (err) {
-                // Игнорируем 404 (нет рассадки), остальные ошибки пробрасываем
                 if (!(err as any).isNotFound) throw err;
             }
 
-            // 3. Загружаем учеников
             const studentsData = await apiFetch<Student[]>(`/classes/${classId}/students`);
             setStudents(studentsData);
 
@@ -199,7 +201,6 @@ export default function SeatingPage() {
         setIsGenerating(true);
 
         try {
-            // Сохраняем текущие маркеры учеников
             const savedMarkers: Record<number, string[]> = {};
             data?.layout_json.seats.forEach(s => {
                 if (s.student_id !== 0 && s.markers.length > 0) {
@@ -209,12 +210,10 @@ export default function SeatingPage() {
 
             const colsToGenerate = data?.layout_json?.grid?.cols || 6;
 
-            // 1. Генерация
             const newData = await apiFetch<SeatingData>(`/seating/${classId}/generate?cols=${colsToGenerate}`, {
                 method: 'POST',
             });
 
-            // Возвращаем маркеры на места
             const updatedSeats = newData.layout_json.seats.map((seat: Seat) => {
                 if (seat.student_id !== 0 && savedMarkers[seat.student_id]) {
                     return { ...seat, markers: savedMarkers[seat.student_id] };
@@ -227,7 +226,6 @@ export default function SeatingPage() {
                 layout_json: { ...newData.layout_json, seats: updatedSeats }
             };
 
-            // 2. Сохраняем сгенерированную рассадку
             await apiFetch(`/seating/${classId}`, {
                 method: 'PUT',
                 json: { layout_json: finalData.layout_json }
@@ -273,7 +271,7 @@ export default function SeatingPage() {
             document.body.appendChild(a);
             a.click();
             a.remove();
-            window.URL.revokeObjectURL(url); // Очищаем память
+            window.URL.revokeObjectURL(url);
 
             showToast('Картинка скачана!', 'success');
         } catch (err) {
@@ -338,16 +336,14 @@ export default function SeatingPage() {
         const totalStudents = data.layout_json.seats.length;
         const requiredRows = Math.ceil(totalStudents / actualCols);
 
-        // АВТОМАТИЧЕСКОЕ РАСШИРЕНИЕ: сетка не может быть меньше, чем нужно
         const finalRows = Math.max(tempRows, requiredRows);
 
         if (finalRows > tempRows) {
-            showToast(`Сетка расширена до ${finalRows} рядов, чтобы все поместились`, 'success');
+            showToast(`Сетка расширена до ${finalRows} рядов`, 'success');
         } else {
             showToast('Сетка обновлена', 'success');
         }
 
-        // Перераспределяем учеников в новую сетку (никого не теряем!)
         const studentsList = data.layout_json.seats
             .filter(s => s.student_id !== 0)
             .map(s => ({ student_id: s.student_id, markers: s.markers }));

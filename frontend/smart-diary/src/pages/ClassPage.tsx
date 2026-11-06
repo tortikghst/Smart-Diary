@@ -69,7 +69,7 @@ export default function ClassPage() {
 
     useEffect(() => {
         if (scrollRef.current && data?.topics_avg && activeChart === 'bar') {
-            const activeBar = scrollRef.current.children[topicIndex] as HTMLElement;
+            const activeBar = scrollRef.current.children[0]?.children[topicIndex] as HTMLElement;
             if (activeBar) {
                 activeBar.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
             }
@@ -211,41 +211,78 @@ export default function ClassPage() {
                                     animate={{ opacity: 1 }}
                                     exit={{ opacity: 0 }}
                                     transition={{ duration: 0.3 }}
-                                    className="flex-1 flex flex-col justify-end w-full"
+                                    className="flex-1 flex flex-col w-full"
                                 >
-                                    <div
-                                        ref={scrollRef}
-                                        className="flex overflow-x-auto gap-3 pb-2 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] h-[200px] items-end"
-                                    >
-                                        {data?.topics_avg?.map((topic, index) => {
-                                            const height = `${Math.max((topic.avg_score / 5) * 100, 10)}%`;
-                                            const isActive = index === topicIndex;
-                                            return (
-                                                <div
-                                                    key={topic.topic_id}
-                                                    onClick={() => setTopicIndex(index)}
-                                                    className="flex flex-col items-center justify-end gap-2 flex-none w-[70px] snap-center h-full cursor-pointer group relative"
-                                                >
-                                                    <motion.div
-                                                        initial={{ height: 0 }}
-                                                        animate={{ height: height }}
-                                                        transition={{ delay: 0.1 + index * 0.05, type: "spring", stiffness: 80 }}
-                                                        className={`w-full rounded-t-md relative transition-colors ${isActive ? 'bg-[#596070] shadow-md' : 'bg-[#94A9BE] group-hover:bg-[#596070]'}`}
-                                                    >
-                                                        <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-[#596070] text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none">
-                                                            Балл: {topic.avg_score} | Пробелы: {topic.students_with_gaps}
-                                                        </div>
-                                                    </motion.div>
+                                    {/* ОБЛАСТЬ ГРАФИКА */}
+                                    <div className="flex w-full h-[200px]">
+                                        {/* Ось Y */}
+                                        <div className="flex flex-col justify-between text-[10px] font-bold text-[#859bb1] pr-2 h-[160px] items-end shrink-0 pb-1">
+                                            <span>5.0</span>
+                                            <span>4.0</span>
+                                            <span>3.0</span>
+                                            <span>2.0</span>
+                                            <span>1.0</span>
+                                        </div>
+                                        
+                                        {/* Скроллируемая область со столбиками */}
+                                        <div 
+                                            ref={scrollRef}
+                                            className="flex-1 overflow-x-auto [&::-webkit-scrollbar]:hidden relative h-[160px] border-l border-b border-gray-300 pb-1 snap-x snap-mandatory"
+                                        >
+                                            {/* Сетка (линии на фоне) */}
+                                            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
+                                                <div className="border-b border-gray-400 w-full h-0"></div>
+                                                <div className="border-b border-gray-400 w-full h-0"></div>
+                                                <div className="border-b border-gray-400 w-full h-0"></div>
+                                                <div className="border-b border-gray-400 w-full h-0"></div>
+                                            </div>
 
-                                                    <div className="h-11 w-full flex items-start justify-center pt-1 overflow-hidden">
-                                                        <span className={`text-[10px] font-bold text-center leading-[1.1] line-clamp-3 w-full break-words hyphens-auto ${isActive ? 'text-[#596070]' : 'text-[#859bb1]'}`}>
+                                            <div className="flex gap-2 min-w-max h-full items-end relative z-10 px-2">
+                                                {data?.topics_avg?.map((topic, index) => {
+                                                    const heightPercent = `${Math.max((topic.avg_score / 5) * 100, 5)}%`;
+                                                    const isActive = index === topicIndex;
+                                                    
+                                                    return (
+                                                        <div
+                                                            key={topic.topic_id}
+                                                            onClick={() => setTopicIndex(index)}
+                                                            className="flex flex-col items-center justify-end h-full w-[60px] cursor-pointer group snap-center shrink-0"
+                                                        >
+                                                            <motion.div
+                                                                initial={{ height: 0 }}
+                                                                animate={{ height: heightPercent }}
+                                                                transition={{ delay: 0.1 + index * 0.05, type: "spring", stiffness: 80 }}
+                                                                className={`w-[80%] rounded-t-md relative transition-colors ${
+                                                                    isActive ? 'bg-[#596070] shadow-md' : 'bg-[#94A9BE] group-hover:bg-[#596070]'
+                                                                }`}
+                                                            >
+                                                                {/* Тултип при наведении */}
+                                                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-[#596070] text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none">
+                                                                    Балл: {topic.avg_score}
+                                                                </div>
+                                                            </motion.div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* ПОДПИСИ ТЕМ (Под графиком) */}
+                                    <div className="flex w-full mt-2 pl-[28px]">
+                                        <div className="flex-1 overflow-x-auto [&::-webkit-scrollbar]:hidden">
+                                            <div className="flex gap-2 min-w-max px-2">
+                                                {data?.topics_avg?.map((topic, index) => (
+                                                    <div key={topic.topic_id} className="w-[60px] flex justify-center snap-center">
+                                                        <span className={`text-[10px] font-bold text-center leading-[1.1] line-clamp-3 w-full break-words hyphens-auto ${
+                                                            index === topicIndex ? 'text-[#596070]' : 'text-[#859bb1]'
+                                                        }`}>
                                                             {topic.topic_title}
                                                         </span>
                                                     </div>
-
-                                                </div>
-                                            );
-                                        })}
+                                                ))}
+                                            </div>
+                                        </div>
                                     </div>
                                 </motion.div>
                             ) : (
