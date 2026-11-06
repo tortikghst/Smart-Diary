@@ -304,7 +304,7 @@ docker compose up --build
 ```
 
 **Подробнее:**
-[📡 Backend README](backend/README.md) · [🎨 Frontend README](frontend/smart-diary/README.md)
+[📡 Backend README](backend/readme.md) · [🎨 Frontend README](frontend/smart-diary/README.md)
 
 ---
 
