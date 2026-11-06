@@ -109,3 +109,24 @@ async def get_class_analytics(
     # Сохраняем в кэш
     _analytics_cache[cache_key] = (now, analytics_data)
     return analytics_data
+@journal_router.get(
+    "/{class_id}/analytics/recommendation",
+    status_code=status.HTTP_200_OK,
+)
+async def get_class_ai_recommendation(
+    class_id: int,
+    _: None = Depends(check_class_owner),
+    current_user: dict = Depends(require_role(["teacher", "admin"])),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Отдельный эндпоинт для медленной генерации рекомендации от ИИ.
+    """
+    teacher_id = int(current_user["sub"])
+    date_to = date.today()
+    date_from = date_to - timedelta(days=30)
+
+    recommendation = await UserRepository.generate_ai_recommendation(
+        db=db, class_id=class_id, teacher_id=teacher_id, date_from=date_from, date_to=date_to
+    )
+    return {"ai_recommendation": recommendation}

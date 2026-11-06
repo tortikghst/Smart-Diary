@@ -209,7 +209,8 @@ async def get_ai_feedback(
             question=db_question.question,
             your_answer=str(user_ans_str),
             correct_answer=str(correct_ans_str),
-            explanation=explanation
+            explanation=explanation,
+            image_url=db_question.image_url
         ))
 
     return AIFeedbackResponse(attempt_id=attempt_id, items=items)

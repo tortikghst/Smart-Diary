@@ -7,6 +7,8 @@ from scr.api.student import student_router
 from scr.api.tests import tests_router
 from scr.api.seating import seating_router
 from scr.api.bot import bot_router
+import os
+from fastapi.staticfiles import StaticFiles
 
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
@@ -50,6 +52,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+os.makedirs("static/uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="static/uploads"), name="uploads")
 
 app.include_router(api_router)
 app.include_router(bot_router)

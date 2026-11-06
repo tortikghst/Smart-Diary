@@ -1242,7 +1242,8 @@ class UserRepository:
                 question=q.question,
                 options=options_dict,
                 correct_option_index=correct_idx,
-                numeric_answer=num_ans
+                numeric_answer=num_ans,
+                image_url=q.image_url
             ))
         
         if payload.topic_id and test.topic_id != payload.topic_id:
@@ -1536,6 +1537,7 @@ class UserRepository:
         Аналитика класса по предмету (Страница 5-6 Контракта).
         B3: рекомендация с цифрами (mastery_percent, students_with_gaps).
         B4: avg_score = None, если оценок нет.
+        ВНИМАНИЕ: Здесь больше нет вызова ИИ (LLM), только быстрая статистика!
         """
         from sqlalchemy import select, func, case
         from scr.model.model import (
@@ -1607,7 +1609,7 @@ class UserRepository:
             if val in dist_map:
                 dist_map[val] = count
 
-                # 4. Карта пробелов с метриками (B3)
+        # 4. Карта пробелов с метриками (B3)
         topics_stmt = (
             select(
                 func.coalesce(PlanTopicModel.title, LessonModel.homework).label("title"),
@@ -1620,7 +1622,7 @@ class UserRepository:
                 ).label("students_with_gaps"),
                 func.sum(case((GradeModel.value >= 4, 1), else_=0)).label("mastery_count"),
             )
-            .select_from(LessonModel)  # <--- ВОТ ЭТА СТРОЧКА (добавили)
+            .select_from(LessonModel)
             .join(GradeModel, LessonModel.lesson_id == GradeModel.lesson_id)
             .join(UserModel, GradeModel.student_id == UserModel.user_id)
             .outerjoin(PlanTopicModel, PlanTopicModel.topic_id == LessonModel.topic_id)
@@ -1668,33 +1670,16 @@ class UserRepository:
                 lowest_score = score
                 weakest_topic = topic_data
 
-            # 5. Рекомендация с цифрами (B3)
-            if weakest_topic:
-                ai_recommendation = (
-                    f"Тема «{weakest_topic['topic_title']}» требует внимания. "
-                    f"Усвоили {weakest_topic['mastery_percent']}% класса "
-                    f"(средний балл {weakest_topic['avg_score']}), "
-                    f"у {weakest_topic['students_with_gaps']} учеников пробелы."
-                )
-            else:
-                ai_recommendation = None
-
-            # 🔥 Живой LLM для рекомендации (ТЕКСТ, а не JSON) 🔥
-            if weakest_topic and not settings.USE_MOCK_LLM:
-                try:
-                    from scr.services.llm_service import YandexGPTService
-                    
-                    prompt = (
-                        f"Напиши короткую рекомендацию для учителя (1-2 предложения). "
-                        f"В классе {weakest_topic['mastery_percent']}% учеников усвоили тему "
-                        f"«{weakest_topic['topic_title']}». У {weakest_topic['students_with_gaps']} учеников есть пробелы."
-                    )
-                    
-                    ai_res = await YandexGPTService.generate_text(prompt)
-                    if ai_res:
-                        ai_recommendation = ai_res
-                except Exception as e:
-                    print(f"⚠️ Ошибка генерации рекомендации: {e}")
+        # 5. БЫСТРАЯ рекомендация-заглушка (без вызова ИИ)
+        if weakest_topic:
+            ai_recommendation = (
+                f"Тема «{weakest_topic['topic_title']}» требует внимания. "
+                f"Усвоили {weakest_topic['mastery_percent']}% класса "
+                f"(средний балл {weakest_topic['avg_score']}), "
+                f"у {weakest_topic['students_with_gaps']} учеников пробелы."
+            )
+        else:
+            ai_recommendation = None
 
         return {
             "class_id": class_id,
@@ -2041,3 +2026,48 @@ class UserRepository:
             )
 
         return {"type": event_type, "items": rating_items, "my_class_id": my_class_id}
+    @staticmethod
+    async def generate_ai_recommendation(
+        db: AsyncSession, 
+        class_id: int, 
+        teacher_id: int, 
+        date_from: datetime.date, 
+        date_to: datetime.date
+    ) -> str | None:
+        """
+        Отдельный медленный метод для генерации рекомендации через ИИ.
+        Вызывается из отдельной ручки, чтобы не блокировать загрузку основной аналитики.
+        """
+        # Импортируем здесь, чтобы избежать циклических зависимостей
+        from scr.services.llm_service import YandexGPTService
+        from scr.config import settings
+
+        # 1. Получаем быструю статистику из БД (ту самую, что мы только что оптимизировали)
+        analytics = await UserRepository.get_class_analytics_data(
+            db=db, class_id=class_id, teacher_id=teacher_id, date_from=date_from, date_to=date_to
+        )
+        
+        if not analytics or not analytics.get("weakest_topic"):
+            return None
+
+        weakest = analytics["weakest_topic"]
+        
+        # 2. Если включен мок (заглушка), возвращаем текст, который сгенерировал get_class_analytics_data
+        if settings.USE_MOCK_LLM:
+            return analytics.get("ai_recommendation")
+
+        # 3. Идем в реальный ИИ
+        prompt = (
+            f"Напиши короткую рекомендацию для учителя (1-2 предложения). "
+            f"В классе {weakest['mastery_percent']}% учеников усвоили тему "
+            f"«{weakest['topic_title']}». У {weakest['students_with_gaps']} учеников есть пробелы. "
+            f"Дай конкретный совет, как улучшить ситуацию."
+        )
+        
+        try:
+            ai_res = await YandexGPTService.generate_text(prompt)
+            # Если ИИ вернул текст — отдаем его. Если нет — откатываемся на шаблон.
+            return ai_res if ai_res else analytics.get("ai_recommendation")
+        except Exception as e:
+            print(f"⚠️ Ошибка генерации рекомендации: {e}")
+            return analytics.get("ai_recommendation")

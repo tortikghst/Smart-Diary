@@ -11,6 +11,7 @@ interface AIFeedbackItem {
     your_answer: string;
     correct_answer: string;
     explanation?: string | null;
+    image_url?: string | null;
 }
 
 interface AIFeedbackData {
@@ -70,7 +71,7 @@ export default function StudentTestReviewPage() {
                         <Trophy size={48} />
                     </div>
                     <h2 className="text-[24px] font-extrabold text-[#3b506c] mb-2">Ошибок нет!</h2>
-                    <p className="text-[14px] text-[#859bb1] font-bold mb-8">Ты ответил абсолютно на все вопросы правильно. Так держать!</p>
+                    <p className="text-[14px] text-[#859bb1] font-bold mb-8">Ты ответил абсолютно на все вопросы правильно! Так держать!</p>
                     <Button onClick={() => navigate('/student')} className="w-full h-14 bg-[#B2CDE0] hover:bg-[#94A9BE] text-[#3b506c] font-extrabold text-[18px] rounded-full transition-all">
                         Вернуться на главную
                     </Button>
@@ -130,6 +131,17 @@ export default function StudentTestReviewPage() {
                             transition={{ duration: 0.2 }}
                             className="flex-1"
                         >
+                                                        {/* 👇 ОТОБРАЖЕНИЕ КАРТИНКИ УСЛОВИЯ 👇 */}
+                            {item.image_url && (
+                                <div className="w-full mb-4 rounded-[20px] overflow-hidden border border-[#e2eaf1] bg-white shadow-sm">
+                                    <img 
+                                        src={item.image_url} 
+                                        alt="Условие задачи" 
+                                        className="w-full max-h-[250px] object-contain" 
+                                    />
+                                </div>
+                            )}
+
                             <h2 className="text-[18px] font-extrabold text-[#3b506c] leading-snug mb-6 mt-2">
                                 {item.question}
                             </h2>

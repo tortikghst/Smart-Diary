@@ -12,6 +12,7 @@ interface TestQuestion {
     type: string;
     question: string;
     options?: any;
+    image_url?: string | null;
 }
 
 interface TestData {
@@ -156,14 +157,14 @@ export default function StudentTestTakePage() {
                         {result.passed ? 'Отлично!' : 'Почти получилось'}
                     </h1>
                     <p className="text-[16px] font-bold text-[#859bb1] mb-6">
-                        Вы набрали <span className="text-[#3b506c] text-[20px]">{result.score}</span> баллов.
+                        Вы набрали <span className="text-[#3b506c] text-[20px]">{result.score}</span> баллов
                     </p>
 
                     <div className="bg-[#f7fafc] rounded-2xl p-4 mb-8">
                         <p className="text-[13px] font-bold text-[#556b86] leading-snug">
                             {result.passed
-                                ? 'Ты отлично справился с заданием! Продолжай в том же духе.'
-                                : 'Не расстраивайся, посмотри разбор ошибок и попробуй еще раз.'}
+                                ? 'Ты отлично справился с заданием! Продолжай в том же духе'
+                                : 'Не расстраивайся, посмотри разбор ошибок и попробуй еще раз'}
                         </p>
                     </div>
 
@@ -262,6 +263,17 @@ export default function StudentTestTakePage() {
                             transition={{ duration: 0.2 }}
                             className="flex-1"
                         >
+                                                        {/* 👇 ОТОБРАЖЕНИЕ КАРТИНКИ УСЛОВИЯ 👇 */}
+                            {question.image_url && (
+                                <div className="w-full mb-4 rounded-[20px] overflow-hidden border border-[#e2eaf1] bg-white shadow-sm">
+                                    <img 
+                                        src={question.image_url} 
+                                        alt="Условие задачи" 
+                                        className="w-full max-h-[250px] object-contain" 
+                                    />
+                                </div>
+                            )}
+
                             <h2 className="text-[20px] font-extrabold text-[#3b506c] leading-snug mb-6 mt-2">
                                 {question.question}
                             </h2>

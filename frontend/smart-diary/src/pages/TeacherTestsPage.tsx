@@ -254,7 +254,7 @@ export default function TeacherTestsPage() {
                     <motion.div variants={item} className="mt-10 text-center w-full">
                         <div className="bg-white/60 backdrop-blur-md rounded-[40px] p-8 shadow-sm border border-white/50">
                             <h2 className="text-[20px] font-bold text-[#596070] mb-2">У вас пока нет тестов</h2>
-                            <p className="text-[#859bb1] text-sm font-bold mb-6">Создайте первый тест с помощью ИИ или вручную.</p>
+                            <p className="text-[#859bb1] text-sm font-bold mb-6">Создайте первый тест с помощью ИИ или вручную</p>
                         </div>
                     </motion.div>
                 ) : (

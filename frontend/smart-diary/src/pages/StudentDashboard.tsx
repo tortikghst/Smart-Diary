@@ -124,12 +124,12 @@ export default function StudentDashboard() {
     }, [dashboard?.subjects, activeSubjectIndex]);
 
     const getDebtsText = (count: number) => {
-        if (count === 0) return "У вас сейчас нет задолженностей.";
+        if (count === 0) return "У вас сейчас нет задолженностей";
         const lastDigit = count % 10;
         const lastTwo = count % 100;
-        if (lastDigit === 1 && lastTwo !== 11) return `У вас ${count} задолженность.`;
-        if ([2, 3, 4].includes(lastDigit) && ![12, 13, 14].includes(lastTwo)) return `У вас ${count} задолженности.`;
-        return `У вас ${count} задолженностей.`;
+        if (lastDigit === 1 && lastTwo !== 11) return `У вас ${count} задолженность`;
+        if ([2, 3, 4].includes(lastDigit) && ![12, 13, 14].includes(lastTwo)) return `У вас ${count} задолженности`;
+        return `У вас ${count} задолженностей`;
     };
 
     const getTestsText = (count: number) => {
@@ -376,7 +376,7 @@ export default function StudentDashboard() {
                         <CardContent className="p-6">
                             <div className="text-[18px] font-extrabold text-[#3b506c] mb-2">Тесты</div>
                             <p className="text-[14px] font-bold text-[#3b506c] mb-5 leading-snug">
-                                В данный момент доступно<br/>{getTestsText(dashboard?.available_tests?.length || 0)}.
+                                В данный момент доступно<br/>{getTestsText(dashboard?.available_tests?.length || 0)}
                             </p>
                             <Button
                                 className="w-full h-12 bg-[#B2CDE0] hover:bg-[#94A9BE] text-[#3b506c] font-extrabold text-[16px] rounded-[20px] transition-all"

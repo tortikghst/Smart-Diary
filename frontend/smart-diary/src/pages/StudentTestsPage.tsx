@@ -65,7 +65,7 @@ export default function StudentTestsPage() {
                                 <PlayCircle size={40} />
                             </div>
                             <h2 className="text-[20px] font-extrabold text-[#3b506c] mb-2">Тестов пока нет</h2>
-                            <p className="text-[#859bb1] text-sm font-bold">Учитель еще не назначил новые тесты. Отдыхайте!</p>
+                            <p className="text-[#859bb1] text-sm font-bold">Учитель еще не назначил новые тесты, Отдыхайте!</p>
                         </div>
                     ) : (
                         <div className="flex flex-col gap-4">

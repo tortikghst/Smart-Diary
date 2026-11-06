@@ -55,7 +55,7 @@ const CustomSelect = ({ value, options, onChange, placeholder }: { value: string
 };
 
 interface Option { id: string; text: string; isCorrect: boolean; }
-interface Question { id: string; type: string; question: string; options: Option[]; correctAnswerText?: string; }
+interface Question { id: string; type: string; question: string; options: Option[]; correctAnswerText?: string; image_url?: string | null; }
 interface Topic { topic_id: number; topic_title: string; }
 interface TeacherClass { class_id: number; class_name: string; }
 interface UserProfile { subject?: { subject_id: number; }; }
@@ -80,6 +80,7 @@ export default function TestCreatePage() {
     const [isSaving, setIsSaving] = useState(false);
     const [isLoadingTest, setIsLoadingTest] = useState(false);
     const [generatingQuestionId, setGeneratingQuestionId] = useState<string | null>(null);
+    const [isUploading, setIsUploading] = useState<string | null>(null); // Стейт для загрузки картинки
     const [user, setUser] = useState<UserProfile | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -131,7 +132,8 @@ export default function TestCreatePage() {
                             options: optionTexts.map((text, i) => ({ id: String(i), text, isCorrect: correctIdx.includes(i) })),
                             correctAnswerText: q.numeric_answer !== null && q.numeric_answer !== undefined
                                 ? String(q.numeric_answer)
-                                : (q.options?.is_text ? (q.options.correct_text || '') : '')
+                                : (q.options?.is_text ? (q.options.correct_text || '') : ''),
+                            image_url: q.image_url || null // <-- ДОБАВЛЕНО
                         };
                     });
                     setQuestions(mapped);
@@ -145,6 +147,34 @@ export default function TestCreatePage() {
         fetchInitialData();
     }, [urlTestId, isEditing]);
 
+    // --- ЗАГРУЗКА КАРТИНКИ ---
+    const handleImageUpload = async (qId: string, file: File) => {
+        setIsUploading(qId);
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const token = localStorage.getItem('access_token');
+            const res = await fetch('/api/v1/teacher/upload-image', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
+            });
+            
+            if (res.ok) {
+                const data = await res.json();
+                updateQuestion(qId, 'image_url', data.image_url);
+                showToast('Картинка загружена!', 'success');
+            } else {
+                showToast('Ошибка загрузки картинки', 'error');
+            }
+        } catch (err) {
+            showToast('Ошибка сети', 'error');
+        } finally {
+            setIsUploading(null);
+        }
+    };
+
     const callAIGenerate = async (count: number, type: string | null = null) => {
         if (!selectedTopic || !selectedClass) {
             showToast('Выберите тему и класс', 'error');
@@ -155,7 +185,7 @@ export default function TestCreatePage() {
                 await apiFetch(`/teacher/tests/${testId}`, { method: 'DELETE' });
                 setTestId(null);
             } catch (err) {
-                // игнорируем ошибку удаления старого черновика
+                // игнорируем
             }
         }
 
@@ -186,7 +216,8 @@ export default function TestCreatePage() {
                         type: frontType,
                         question: q.question || '',
                         options: optionTexts.map((text, i) => ({ id: String(i), text, isCorrect: correctIdx.includes(i) })),
-                        correctAnswerText: q.numeric_answer !== null && q.numeric_answer !== undefined ? String(q.numeric_answer) : ''
+                        correctAnswerText: q.numeric_answer !== null && q.numeric_answer !== undefined ? String(q.numeric_answer) : '',
+                        image_url: null // При генерации ИИ картинок нет
                     };
                 })
             };
@@ -231,7 +262,7 @@ export default function TestCreatePage() {
     const handleAddQuestion = () => {
         setQuestions(prev => [...prev, {
             id: Math.random().toString(36).slice(2, 11), type: 'single_choice', question: '',
-            options: [{ id: '1', text: '', isCorrect: false }, { id: '2', text: '', isCorrect: false }], correctAnswerText: ''
+            options: [{ id: '1', text: '', isCorrect: false }, { id: '2', text: '', isCorrect: false }], correctAnswerText: '', image_url: null
         }]);
     };
 
@@ -300,6 +331,7 @@ export default function TestCreatePage() {
                         type: q.type,
                         title: testName,
                         question: q.question,
+                        image_url: q.image_url || null, // <-- ДОБАВЛЕНО
                         options: isChoice ? q.options.map(o => o.text) : (q.type === 'text_input' ? [q.correctAnswerText || ''] : null),
                         correct_indices: isChoice ? q.options.map((o, i) => o.isCorrect ? i : -1).filter(i => i !== -1) : null,
                         numeric_answer: q.type === 'math' && q.correctAnswerText ? Number(q.correctAnswerText) : null
@@ -475,6 +507,36 @@ export default function TestCreatePage() {
                                             placeholder="Текст вопроса..."
                                             className="w-full bg-[#F4F8F8] p-3 rounded-xl font-bold text-[#596070] outline-none resize-none h-20 text-sm focus:ring-2 focus:ring-[#94A9BE] transition-all"
                                         />
+
+                                        {/* БЛОК ЗАГРУЗКИ КАРТИНКИ */}
+                                        <div className="flex flex-col gap-2 mt-1">
+                                            {q.image_url ? (
+                                                <div className="relative w-full h-32 rounded-xl overflow-hidden border border-[#C9D9E6] group">
+                                                    <img src={q.image_url} alt="Условие" className="w-full h-full object-contain bg-black/5" />
+                                                    <button
+                                                        onClick={() => updateQuestion(q.id, 'image_url', null)}
+                                                        className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <label className={`flex items-center justify-center w-full h-12 bg-[#F4F8F8] border-2 border-dashed border-[#C9D9E6] rounded-xl cursor-pointer hover:bg-[#e8f0f0] transition-colors ${isUploading === q.id ? 'opacity-50 pointer-events-none' : ''}`}>
+                                                    <span className="text-[#859bb1] font-bold text-sm flex items-center gap-2">
+                                                        {isUploading === q.id ? 'Загрузка...' : '📷 Прикрепить картинку'}
+                                                    </span>
+                                                    <input
+                                                        type="file"
+                                                        accept="image/jpeg,image/png,image/webp"
+                                                        className="hidden"
+                                                        onChange={(e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (file) handleImageUpload(q.id, file);
+                                                        }}
+                                                    />
+                                                </label>
+                                            )}
+                                        </div>
 
                                         {(q.type === 'single_choice' || q.type === 'multiple_choice') && (
                                             <div className="flex flex-col gap-2 mt-1">

@@ -495,7 +495,8 @@ class TestQuestionModel(Base):
     options: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     correct_option_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
     numeric_answer: Mapped[float | None] = mapped_column(DECIMAL(10, 4), nullable=True)
-
+    image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    
     test: Mapped[TestModel] = relationship(back_populates="questions")
     answers: Mapped[list["TestAnswerModel"]] = relationship(
         back_populates="question",

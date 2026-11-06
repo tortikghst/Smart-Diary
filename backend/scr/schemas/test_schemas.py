@@ -13,6 +13,7 @@ class TestQuestionResponse(BaseModel):
     type: str
     question: str
     options: Optional[dict] = None
+    image_url: Optional[str] = None # <--- ДОБАВЛЕНО
 
     class Config:
         from_attributes = True
@@ -52,6 +53,7 @@ class AIFeedbackItem(BaseModel):
     your_answer: str
     correct_answer: str
     explanation: Optional[str] = None
+    image_url: Optional[str] = None # <--- ДОБАВЛЕНО
 
 
 class AIFeedbackResponse(BaseModel):
@@ -71,6 +73,7 @@ class QuestionSaveItem(BaseModel):
     options: Optional[List[str]] = None
     correct_indices: Optional[List[int]] = None
     numeric_answer: Optional[float] = None
+    image_url: Optional[str] = None # <--- ДОБАВЛЕНО
 
 
 class TestSaveRequest(BaseModel):
@@ -89,6 +92,7 @@ class QuestionEditResponse(BaseModel):
     options: Optional[dict] = None
     correct_indices: Optional[List[int]] = None
     numeric_answer: Optional[float] = None
+    image_url: Optional[str] = None # <--- ДОБАВЛЕНО
 
 
 class TestEditResponse(BaseModel):

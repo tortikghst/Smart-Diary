@@ -48,8 +48,6 @@ export default function TeacherDashboard() {
                 setUser(userData);
                 setDashboard(dashboardData);
             } catch (err) {
-                // 401 (протухший токен) apiFetch обработает сам и перекинет на '/'
-                // Здесь ловим остальные ошибки (например, 500 на бэкенде)
                 console.error("Ошибка загрузки дашборда:", getErrorMessage(err));
             } finally {
                 setIsLoading(false);
@@ -147,23 +145,52 @@ export default function TeacherDashboard() {
                     {isLoading ? (
                         <div className="text-center text-[#596070]">Загрузка графика...</div>
                     ) : (
-                        <div className="flex items-end justify-center gap-4 h-40">
-                            {dashboard?.classes.map((cls, index) => {
-                                const heightPercent = cls.avg_score ? `${(cls.avg_score / 5) * 100}%` : '20%';
-                                const color = cls.is_problem ? 'bg-red-300' : index % 3 === 0 ? 'bg-[#B2CDE0]' : index % 3 === 1 ? 'bg-[#94A9BE]' : 'bg-[#EBF1F1]';
+                        <div className="flex flex-col w-full">
+                            <span className="text-[12px] font-bold text-[#859bb1] text-center mb-2">Средний балл по классам (от 1 до 5)</span>
+                            <div className="flex w-full">
+                                {/* Ось Y */}
+                                <div className="flex flex-col justify-between text-[10px] font-bold text-[#859bb1] pr-2 h-40 items-end">
+                                    <span>5.0</span>
+                                    <span>4.0</span>
+                                    <span>3.0</span>
+                                    <span>2.0</span>
+                                    <span>1.0</span>
+                                </div>
+                                
+                                {/* Сам график */}
+                                <div className="flex items-end justify-around w-full h-40 border-l border-b border-gray-300 pb-1 relative">
+                                    {/* Сетка (линии на фоне) */}
+                                    <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
+                                        <div className="border-b border-gray-400 w-full h-0"></div>
+                                        <div className="border-b border-gray-400 w-full h-0"></div>
+                                        <div className="border-b border-gray-400 w-full h-0"></div>
+                                        <div className="border-b border-gray-400 w-full h-0"></div>
+                                    </div>
 
-                                return (
-                                    <motion.div
-                                        key={cls.class_id}
-                                        initial={{ height: 0 }}
-                                        animate={{ height: heightPercent }}
-                                        transition={{ delay: 0.5 + (index * 0.1), duration: 0.8 }}
-                                        className={`w-14 ${color} rounded-t-xl flex justify-center pt-2`}
-                                    >
-                                        <span className="text-[#596070] font-bold text-[14px]">{cls.class_name}</span>
-                                    </motion.div>
-                                );
-                            })}
+                                    {dashboard?.classes.map((cls, index) => {
+                                        // Высота от 0 до 100% в зависимости от балла (макс 5)
+                                        const heightPercent = cls.avg_score ? `${(cls.avg_score / 5) * 100}%` : '0%';
+                                        const color = cls.is_problem ? 'bg-[#D48B8B]' : index % 3 === 0 ? 'bg-[#B2CDE0]' : index % 3 === 1 ? 'bg-[#94A9BE]' : 'bg-[#EBF1F1]';
+
+                                        return (
+                                            <div key={cls.class_id} className="relative flex flex-col items-center justify-end h-full w-12 z-10 group">
+                                                {/* Тултип с точным баллом при наведении */}
+                                                <div className="absolute -top-6 bg-[#3b506c] text-white text-[10px] font-bold py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none">
+                                                    {cls.avg_score ? cls.avg_score.toFixed(1) : '0'} б.
+                                                </div>
+                                                
+                                                <motion.div
+                                                    initial={{ height: 0 }}
+                                                    animate={{ height: heightPercent }}
+                                                    transition={{ delay: 0.5 + (index * 0.1), duration: 0.8, type: "spring" }}
+                                                    className={`w-full ${color} rounded-t-md shadow-sm`}
+                                                />
+                                                <span className="text-[#596070] font-bold text-[12px] mt-2">{cls.class_name}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         </div>
                     )}
                 </motion.div>
