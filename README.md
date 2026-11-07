@@ -70,20 +70,26 @@
 
 ## 🎬 Демо
 
-<table>
-  <tr>
-    <td align="center" width="50%">
-      <h3>👩‍🏫 Учитель</h3>
-      <a href="docs/screencast_teacher_1.mp4"><b>▶️ Смотреть скринкаст</b></a>
-      <br /><sub>Аналитика класса → рассадка → ИИ-тест</sub>
-    </td>
-    <td align="center" width="50%">
-      <h3>🧒 Ученик</h3>
-      <a href="docs/screencast_student.mp4"><b>▶️ Смотреть скринкаст</b></a>
-      <br /><sub>Тест → разбор ошибок → долги → огонёк</sub>
-    </td>
-  </tr>
-</table>
+<div align="center">
+  <table>
+    <tr>
+      <th width="50%">👨‍🏫 <b>Учитель</b></th>
+      <th width="50%">🎓 <b>Ученик</b></th>
+    </tr>
+    <tr>
+      <td align="center" valign="top">
+        <img src="docs/screencast_teacher_finally1.gif" width="100%" alt="Скринкаст учителя">
+        <br>
+        <sub>Аналитика класса → рассадка → ИИ-тест</sub>
+      </td>
+      <td align="center" valign="top">
+        <img src="docs/screencast_student_finally.gif" width="100%" alt="Скринкаст ученика">
+        <br>
+        <sub>Тест → разбор ошибок → долги → огонёк</sub>
+      </td>
+    </tr>
+  </table>
+</div>
 
 ### 🚀 Попробуйте сейчас
 
