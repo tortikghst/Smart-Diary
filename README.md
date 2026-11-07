@@ -221,8 +221,6 @@ docker compose up --build
 ---
 
 ## 📚 Проектная документация
->>>>>>> 731874fcc9f32373ad7d7c8be720a08035fb9b09
-
 
 <details>
 <summary>👉 <b><ins>Use case</ins></b> — роли и сценарии, где участвует ИИ <i>(нажмите, чтобы раскрыть)</i></summary>
