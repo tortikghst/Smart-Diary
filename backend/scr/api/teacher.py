@@ -2,6 +2,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, status, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 import os
+import shutil
+import uuid
 from scr.database import get_db_session
 from scr.repositories.repositorie import UserRepository
 from scr.api.auth_deps import require_role, get_current_token_data
@@ -330,6 +332,10 @@ async def get_test_for_edit(
         if q_type_str == "numeric" or q_type_str == "math":
             numeric_answer = float(q.numeric_answer) if q.numeric_answer is not None else None
             opts = None
+        elif q_type_str == "matching":
+            # 👇 ДЛЯ СОПОСТАВЛЕНИЙ ОСТАВЛЯЕМ options КАК ЕСТЬ (словарь с left, right, correct_matches)
+            opts = q.options
+            correct_indices = None
         else:
             if opts.get("is_multiple"):
                 correct_indices = opts.get("correct_indices", [])
@@ -344,7 +350,8 @@ async def get_test_for_edit(
             question=q.question,
             options=opts,
             correct_indices=correct_indices,
-            numeric_answer=numeric_answer
+            numeric_answer=numeric_answer,
+            image_url=q.image_url
         ))
 
     return TestEditResponse(
@@ -352,7 +359,6 @@ async def get_test_for_edit(
         topic_id=test.topic_id,
         created_by=test.created_by.value if hasattr(test.created_by, "value") else str(test.created_by),
         status=test.status,
-        title=test.title,
         questions=questions
     )
 @teacher_router.delete("/tests/{test_id}", status_code=status.HTTP_200_OK)
@@ -377,3 +383,26 @@ async def delete_test(
         )
         
     return {"message": "Тест успешно удален", "test_id": test_id}
+
+@teacher_router.post("/upload-image", status_code=status.HTTP_201_CREATED)
+async def upload_test_image(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(require_role(["teacher"])),
+):
+    """
+    Загрузка картинки к вопросу теста.
+    Возвращает URL, который фронтенд сохранит в вопросе.
+    """
+    if file.content_type not in ["image/jpeg", "image/png", "image/webp"]:
+        raise HTTPException(status_code=400, detail="Разрешены только JPEG, PNG или WebP")
+    
+    ext = file.filename.split(".")[-1]
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    
+    # Папка static/uploads должна быть создана в main.py
+    file_path = f"static/uploads/{filename}"
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    return {"image_url": f"/uploads/{filename}"}

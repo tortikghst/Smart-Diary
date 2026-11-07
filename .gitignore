@@ -55,4 +55,5 @@ credentials.json
 .idea/
 *.swp
 *.swo
-.DS_Store
+.DS_Store*.crt
+*.pem

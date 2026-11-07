@@ -23,9 +23,10 @@ export default function StudentDebtsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [selectedDebt, setSelectedDebt] = useState<StudentDebt | null>(null);
     const [isCreatingPrep, setIsCreatingPrep] = useState(false);
-    
-    // Стейт для ошибок
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+    // Стейт для фильтра
+    const [selectedSubject, setSelectedSubject] = useState<string>('Все');
 
     useEffect(() => {
         const fetchDebts = async () => {
@@ -34,7 +35,6 @@ export default function StudentDebtsPage() {
                 setDebts(data.filter((d) => !d.resolved));
             } catch (err) {
                 console.error(err);
-                // Можно добавить глобальный тост, если нужно
             } finally {
                 setIsLoading(false);
             }
@@ -45,7 +45,7 @@ export default function StudentDebtsPage() {
     const handleCreatePrepTest = async () => {
         if (!selectedDebt) return;
         setIsCreatingPrep(true);
-        setErrorMsg(null); // Сбрасываем старую ошибку перед новым запросом
+        setErrorMsg(null);
 
         try {
             const testData = await apiFetch<{ test_id: number, questions: any[] }>(
@@ -54,7 +54,7 @@ export default function StudentDebtsPage() {
             );
 
             if (!testData.questions || testData.questions.length === 0) {
-                setErrorMsg("ИИ не сгенерировал ни одного вопроса. Попробуйте позже.");
+                setErrorMsg("ИИ не сгенерировал ни одного вопроса. Попробуйте позже");
                 return;
             }
 
@@ -68,7 +68,6 @@ export default function StudentDebtsPage() {
         }
     };
 
-    // Функция для закрытия панели со сбросом ошибки
     const closeSheet = () => {
         setSelectedDebt(null);
         setErrorMsg(null);
@@ -79,6 +78,11 @@ export default function StudentDebtsPage() {
         const parts = dateString.split('-');
         return parts.length === 3 ? `${parts[2]}.${parts[1]}.${parts[0]}` : dateString;
     };
+
+    // Получаем уникальные предметы для фильтра
+    const subjects = ['Все', ...Array.from(new Set(debts.map(d => d.subject_name)))];
+    // Фильтруем массив
+    const filteredDebts = selectedSubject === 'Все' ? debts : debts.filter(d => d.subject_name === selectedSubject);
 
     return (
         <div className="relative min-h-screen bg-[#f2f6f9] overflow-x-hidden flex justify-center font-sans pb-10">
@@ -94,20 +98,41 @@ export default function StudentDebtsPage() {
                     <div className="w-10 h-10" />
                 </header>
 
-                <div className="mt-6 px-4">
+                {/* БЛОК ФИЛЬТРАЦИИ */}
+                {!isLoading && debts.length > 0 && (
+                    <div className="mt-4 px-4 overflow-x-auto [&::-webkit-scrollbar]:hidden flex gap-2 pb-2">
+                        {subjects.map(sub => (
+                            <button
+                                key={sub}
+                                onClick={() => setSelectedSubject(sub)}
+                                className={`whitespace-nowrap px-4 py-2 rounded-full font-bold text-[13px] transition-all shadow-sm ${
+                                    selectedSubject === sub 
+                                    ? 'bg-[#3b506c] text-white' 
+                                    : 'bg-white/80 text-[#556b86] hover:bg-white'
+                                }`}
+                            >
+                                {sub}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                <div className="mt-2 px-4">
                     {isLoading ? (
                         <div className="flex justify-center items-center h-[200px] text-[#3b506c] animate-pulse font-bold">Загрузка...</div>
-                    ) : debts.length === 0 ? (
-                        <div className="bg-white/80 backdrop-blur-md rounded-[30px] p-8 text-center shadow-sm border border-white/50 mt-10">
+                    ) : filteredDebts.length === 0 ? (
+                        <div className="bg-white/80 backdrop-blur-md rounded-[30px] p-8 text-center shadow-sm border border-white/50 mt-4">
                             <div className="w-20 h-20 bg-[#EBF1F1] rounded-full flex items-center justify-center mx-auto mb-4 text-[#94A9BE]">
                                 <BookOpen size={40} />
                             </div>
-                            <h2 className="text-[20px] font-extrabold text-[#3b506c] mb-2">У вас нет долгов</h2>
-                            <p className="text-[#859bb1] text-sm font-bold">Все домашние задания сданы вовремя. Так держать!</p>
+                            <h2 className="text-[20px] font-extrabold text-[#3b506c] mb-2">
+                                {selectedSubject === 'Все' ? 'У вас нет долгов' : `Нет долгов по предмету`}
+                            </h2>
+                            <p className="text-[#859bb1] text-sm font-bold">Все домашние задания сданы вовремя! Так держать!</p>
                         </div>
                     ) : (
-                        <div className="flex flex-col gap-3">
-                            {debts.map((debt) => (
+                        <div className="flex flex-col gap-3 mt-2">
+                            {filteredDebts.map((debt) => (
                                 <motion.div
                                     key={debt.debt_id}
                                     whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
@@ -160,7 +185,6 @@ export default function StudentDebtsPage() {
                                 </p>
                             </div>
 
-                            {/* Блок ошибки (вставляем строго перед кнопкой!) */}
                             {errorMsg && (
                                 <div className="w-full bg-[#f8e8e8] border border-[#D48B8B]/30 text-[#D48B8B] p-3 rounded-xl mb-4 text-center text-[13px] font-bold leading-tight">
                                     {errorMsg}

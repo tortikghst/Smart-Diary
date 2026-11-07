@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, ChevronDown, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, Check, Sparkles } from "lucide-react";
 import { Button } from "../../@/components/ui/button";
 import { Card, CardContent } from "../../@/components/ui/card";
 import bgImage from '../assets/bg.png';
 
 // --- ИМПОРТЫ КАРТИНОК МАСКОТОВ ---
+<<<<<<< HEAD
 import mathImg from '../assets/mascots/math.png';
 import russianImg from '../assets/mascots/russian.png';
 import literatureImg from '../assets/mascots/literature.png';
@@ -20,6 +21,22 @@ import defaultImg from '../assets/mascots/default.png';
 import phisyc from '../assets/mascots/phisycs.png';
 import biol from '../assets/biol.png';
 import english from '../assets/english.png';
+=======
+import mathImg from '../assets/mascots/math.webp';
+import russianImg from '../assets/mascots/russian.webp';
+import literatureImg from '../assets/mascots/literature.webp';
+import historyImg from '../assets/mascots/history.webp';
+import geographyImg from '../assets/mascots/geography.webp';
+import chemistryImg from '../assets/mascots/chemistry.webp';
+import informaticsImg from '../assets/mascots/informatics.webp';
+import peImg from '../assets/mascots/PE.webp';
+import trudImg from '../assets/mascots/trud.webp';
+import defaultImg from '../assets/mascots/default.webp';
+import phisyc from '../assets/mascots/phisycs.webp';
+import biol from '../assets/mascots/biol.webp';
+import english from '../assets/mascots/english.webp';
+
+>>>>>>> 731874fcc9f32373ad7d7c8be720a08035fb9b09
 interface UserProfile {
     full_name: string;
     class_id: number;
@@ -62,14 +79,20 @@ const getMascotImage = (subjectName: string) => {
     if (name.includes('географ')) return geographyImg;
     if (name.includes('хими')) return chemistryImg;
     if (name.includes('информ')) return informaticsImg;
-    if (name.includes('физкульт') || name.includes('физ. культ') || (name.includes('физ') && name.includes('культур'))) {
-        return peImg;
-    }
+    if (name.includes('физкульт') || name.includes('физ. культ') || (name.includes('физ') && name.includes('культур'))) return peImg;
     if (name.includes('труд') || name.includes('технолог')) return trudImg;
     if (name.includes('физ')) return phisyc;
     if (name.includes('биолог')) return biol;
     if (name.includes('английск') || name.includes('иностран')) return english;
     return defaultImg;
+};
+
+const getPortalColor = (streak: number) => {
+    if (streak === 0) return { text: "text-gray-500" };
+    if (streak < 5) return { text: "text-blue-500" };
+    if (streak < 10) return { text: "text-green-500" };
+    if (streak < 20) return { text: "text-orange-500" };
+    return { text: "text-purple-500" };
 };
 
 export default function StudentMascot() {
@@ -84,7 +107,6 @@ export default function StudentMascot() {
     const [isMascotLoading, setIsMascotLoading] = useState(false);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-    // 1. Загрузка профиля, списка предметов и стриков для авто-выбора
     useEffect(() => {
         const fetchInitialData = async () => {
             const token = localStorage.getItem('access_token');
@@ -95,7 +117,7 @@ export default function StudentMascot() {
                 const [userRes, dashRes, streaksRes] = await Promise.all([
                     fetch('/api/v1/users/me', { headers }),
                     fetch('/api/v1/student/dashboard', { headers }),
-                    fetch('/api/v1/student/streaks', { headers }) // Запрашиваем стрики всех предметов
+                    fetch('/api/v1/student/streaks', { headers })
                 ]);
 
                 if (userRes.ok) setUser(await userRes.json());
@@ -109,19 +131,13 @@ export default function StudentMascot() {
                         let initialSubjectId = fetchedSubjects[0].subject_id;
                         let initialIndex = 0;
 
-                        // Ищем предмет с максимальным стриком
                         if (streaksRes.ok) {
                             const streaksData: StreakData[] = await streaksRes.json();
                             if (streaksData.length > 0) {
-                                // Находим максимальный стрик
                                 const maxStreakItem = streaksData.reduce((prev, current) =>
                                     (prev.current_streak > current.current_streak) ? prev : current
                                 );
-
-                                // Ищем его индекс в общем списке предметов
                                 const foundIndex = fetchedSubjects.findIndex(s => s.subject_id === maxStreakItem.subject_id);
-
-                                // Если нашли и стрик больше нуля — выбираем его
                                 if (foundIndex !== -1 && maxStreakItem.current_streak > 0) {
                                     initialIndex = foundIndex;
                                     initialSubjectId = maxStreakItem.subject_id;
@@ -129,7 +145,6 @@ export default function StudentMascot() {
                             }
                         }
 
-                        // Устанавливаем активный индекс и грузим маскота
                         setActiveIndex(initialIndex);
                         fetchMascotData(initialSubjectId);
                     } else {
@@ -193,6 +208,7 @@ export default function StudentMascot() {
 
     const currentSubjectName = subjects[activeIndex]?.name || "Предмет не найден";
     const currentImage = getMascotImage(currentSubjectName);
+    const portalColors = getPortalColor(mascot?.current_streak || 0);
 
     return (
         <div className="relative min-h-screen bg-[#f2f6f9] overflow-x-hidden flex justify-center font-sans">
@@ -239,21 +255,28 @@ export default function StudentMascot() {
                     transition={{ duration: 0.5 }}
                     className="mt-4 mx-4"
                 >
-                    <Card className="bg-white/80 backdrop-blur-md rounded-[40px] shadow-sm border-none overflow-hidden pt-8 pb-6 px-4">
+                    <Card className="bg-white/80 backdrop-blur-md rounded-[40px] shadow-sm border-none overflow-hidden pt-6 pb-6 px-4">
                         <CardContent className="flex flex-col items-center p-0">
 
-                            <h2 className="text-[34px] font-black text-[#3b506c] mb-2">
+                            {/* ДИНАМИЧЕСКАЯ ПЛАШКА С ИМЕНЕМ */}
+                            <div className="bg-[#EBF1F1] text-[#596070] px-4 py-1.5 rounded-full font-extrabold text-[13px] mb-2 shadow-sm border border-[#C9D9E6] flex items-center gap-1.5 uppercase tracking-wider">
+                                <Sparkles size={14} className="text-[#94A9BE]" />
+                                Соволудь-{currentSubjectName.toLowerCase()}
+                            </div>
+
+                            <h2 className={`text-[34px] font-black mb-2 transition-colors duration-500 ${portalColors.text}`}>
                                 {getDaysText(mascot?.current_streak || 0)}!
                             </h2>
 
-                            <div className="w-[220px] h-[220px] flex items-center justify-center relative my-4">
+                            {/* САМ МАСКОТ (Без партиклов, просто парит) */}
+                            <div className="w-[240px] h-[240px] flex items-center justify-center relative my-2">
                                 {isMascotLoading || !currentImage ? (
                                     <div className="w-12 h-12 border-4 border-[#B2CDE0] border-t-transparent rounded-full animate-spin"></div>
                                 ) : (
                                     <motion.div
-                                        animate={{ y: [0, -12, 0] }}
+                                        animate={{ y: [0, -10, 0] }}
                                         transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-                                        className="w-full h-full"
+                                        className="relative z-10 w-full h-full flex items-center justify-center p-4"
                                     >
                                         <AnimatePresence mode="wait">
                                             <motion.img
@@ -264,14 +287,14 @@ export default function StudentMascot() {
                                                 transition={{ duration: 0.3 }}
                                                 src={currentImage}
                                                 alt="Маскот"
-                                                className="w-full h-full object-contain drop-shadow-xl"
+                                                className="w-full h-full object-contain drop-shadow-2xl"
                                             />
                                         </AnimatePresence>
                                     </motion.div>
                                 )}
                             </div>
 
-                            <div className="h-10 flex items-center justify-center mb-2 px-4 text-center">
+                            <div className="h-8 flex items-center justify-center mb-1 px-4 text-center">
                                 <p className="text-[14px] font-bold text-[#859bb1] leading-tight">
                                     {mascot?.message || "Продолжай в том же духе!"}
                                 </p>

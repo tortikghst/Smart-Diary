@@ -11,12 +11,63 @@ interface AIFeedbackItem {
     your_answer: string;
     correct_answer: string;
     explanation?: string | null;
+    image_url?: string | null;
 }
 
 interface AIFeedbackData {
     attempt_id: number;
     items: AIFeedbackItem[];
 }
+
+// ============================================================
+// ФУНКЦИЯ ДЛЯ КРАСИВОГО ОТОБРАЖЕНИЯ MATCHING И МАССИВОВ
+// ============================================================
+const formatAnswer = (answer: string | null | undefined) => {
+    if (!answer) return "Нет ответа";
+    
+    // Пытаемся распарсить строку, если она похожа на JSON
+    if (answer.trim().startsWith('{') || answer.trim().startsWith('[')) {
+        try {
+            const parsed = JSON.parse(answer);
+            
+            // Если это объект (словарь пар: {"Ключ": "Значение"})
+            if (typeof parsed === 'object' && !Array.isArray(parsed) && parsed !== null) {
+                return (
+                    <div className="flex flex-col gap-1.5 mt-1">
+                        {Object.entries(parsed).map(([key, value], i) => (
+                            <div key={i} className="flex items-start gap-2 bg-white/50 p-2 rounded-lg">
+                                <span className="font-bold opacity-70">{key}</span>
+                                <span className="opacity-50">➔</span>
+                                <span className="font-extrabold">{String(value)}</span>
+                            </div>
+                        ))}
+                    </div>
+                );
+            }
+            
+            // Если это массив (например: ["А", "Б"] или [["А","1"]])
+            if (Array.isArray(parsed)) {
+                return (
+                    <div className="flex flex-col gap-1.5 mt-1">
+                        {parsed.map((item, i) => (
+                            <div key={i} className="bg-white/50 p-2 rounded-lg font-bold">
+                                {Array.isArray(item) ? item.join(' ➔ ') : String(item)}
+                            </div>
+                        ))}
+                    </div>
+                );
+            }
+            
+            return String(parsed);
+        } catch (e) {
+            // Если это не JSON, просто возвращаем строку
+            return answer;
+        }
+    }
+    
+    return answer;
+};
+// ============================================================
 
 export default function StudentTestReviewPage() {
     const { testId } = useParams();
@@ -59,18 +110,16 @@ export default function StudentTestReviewPage() {
         return <div className="min-h-screen flex items-center justify-center bg-[#f2f6f9] text-[#3b506c] font-bold">Загрузка разбора...</div>;
     }
 
-    // Если ошибок нет (все ответы верные)
     if (!feedback || !feedback.items || feedback.items.length === 0) {
         return (
             <div className="relative min-h-screen bg-[#f2f6f9] flex flex-col items-center justify-center p-6 text-center">
                 <div className="fixed inset-0 bg-cover bg-center opacity-40 z-0" style={{ backgroundImage: `url(${bgImage})` }} />
-
                 <div className="relative z-10 bg-white/90 backdrop-blur-xl rounded-[40px] p-8 w-full max-w-[380px] shadow-2xl border border-white">
                     <div className="w-24 h-24 bg-[#e5f4e5] text-[#7FB280] mx-auto rounded-full flex items-center justify-center mb-6">
                         <Trophy size={48} />
                     </div>
                     <h2 className="text-[24px] font-extrabold text-[#3b506c] mb-2">Ошибок нет!</h2>
-                    <p className="text-[14px] text-[#859bb1] font-bold mb-8">Ты ответил абсолютно на все вопросы правильно. Так держать!</p>
+                    <p className="text-[14px] text-[#859bb1] font-bold mb-8">Ты ответил абсолютно на все вопросы правильно! Так держать!</p>
                     <Button onClick={() => navigate('/student')} className="w-full h-14 bg-[#B2CDE0] hover:bg-[#94A9BE] text-[#3b506c] font-extrabold text-[18px] rounded-full transition-all">
                         Вернуться на главную
                     </Button>
@@ -88,8 +137,6 @@ export default function StudentTestReviewPage() {
             <div className="fixed inset-0 bg-cover bg-center bg-no-repeat opacity-40 z-0" style={{ backgroundImage: `url(${bgImage})` }} />
 
             <div className="relative z-10 w-full max-w-[430px] flex flex-col">
-
-                {/* Шапка разбора */}
                 <header className="bg-white/80 backdrop-blur-md px-5 pt-6 pb-4 rounded-b-[30px] shadow-sm sticky top-0 z-20">
                     <div className="flex items-center justify-between mb-4">
                         <button
@@ -119,7 +166,6 @@ export default function StudentTestReviewPage() {
                     </div>
                 </header>
 
-                {/* Блок разбора */}
                 <div className="p-5 flex-1 flex flex-col">
                     <AnimatePresence mode="wait">
                         <motion.div
@@ -130,6 +176,16 @@ export default function StudentTestReviewPage() {
                             transition={{ duration: 0.2 }}
                             className="flex-1"
                         >
+                            {item.image_url && (
+                                <div className="w-full mb-4 rounded-[20px] overflow-hidden border border-[#e2eaf1] bg-white shadow-sm">
+                                    <img
+                                        src={item.image_url}
+                                        alt="Условие задачи"
+                                        className="w-full max-h-[250px] object-contain"
+                                    />
+                                </div>
+                            )}
+
                             <h2 className="text-[18px] font-extrabold text-[#3b506c] leading-snug mb-6 mt-2">
                                 {item.question}
                             </h2>
@@ -141,9 +197,9 @@ export default function StudentTestReviewPage() {
                                         <XCircle size={18} />
                                         <span className="text-[12px] font-extrabold uppercase tracking-wide">Твой ответ</span>
                                     </div>
-                                    <p className="text-[15px] font-bold text-[#a85a5a] line-through decoration-[#D48B8B]/50">
-                                        {item.your_answer || "Нет ответа"}
-                                    </p>
+                                    <div className="text-[15px] font-bold text-[#a85a5a] line-through decoration-[#D48B8B]/50">
+                                        {formatAnswer(item.your_answer)}
+                                    </div>
                                 </div>
 
                                 {/* Правильный ответ */}
@@ -152,9 +208,9 @@ export default function StudentTestReviewPage() {
                                         <CheckCircle2 size={18} />
                                         <span className="text-[12px] font-extrabold uppercase tracking-wide">Правильный ответ</span>
                                     </div>
-                                    <p className="text-[15px] font-extrabold text-[#4a7a4c]">
-                                        {item.correct_answer}
-                                    </p>
+                                    <div className="text-[15px] font-extrabold text-[#4a7a4c]">
+                                        {formatAnswer(item.correct_answer)}
+                                    </div>
                                 </div>
 
                                 {/* Объяснение от ИИ */}
@@ -180,7 +236,6 @@ export default function StudentTestReviewPage() {
                     </AnimatePresence>
                 </div>
 
-                {/* Навигация */}
                 <div className="p-5 sticky bottom-0 bg-gradient-to-t from-[#f2f6f9] via-[#f2f6f9] to-transparent z-20 mt-auto">
                     <div className="flex gap-3">
                         {currentIdx > 0 && (

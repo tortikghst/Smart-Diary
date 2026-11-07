@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Union, Dict, Any
 
 
 class QuestionOptionSchema(BaseModel):
@@ -13,6 +13,7 @@ class TestQuestionResponse(BaseModel):
     type: str
     question: str
     options: Optional[dict] = None
+    image_url: Optional[str] = None # <--- ДОБАВЛЕНО
 
     class Config:
         from_attributes = True
@@ -52,6 +53,7 @@ class AIFeedbackItem(BaseModel):
     your_answer: str
     correct_answer: str
     explanation: Optional[str] = None
+    image_url: Optional[str] = None # <--- ДОБАВЛЕНО
 
 
 class AIFeedbackResponse(BaseModel):
@@ -68,10 +70,11 @@ class QuestionSaveItem(BaseModel):
     """Схема вопроса для сохранения из конструктора учителя."""
     type: str
     question: str
-    options: Optional[List[str]] = None
+    # 👇 РАСШИРИЛИ ТИП: теперь принимает и список строк, и словарь
+    options: Optional[Union[List[str], Dict[str, Any]]] = None 
     correct_indices: Optional[List[int]] = None
     numeric_answer: Optional[float] = None
-
+    image_url: Optional[str] = None
 
 class TestSaveRequest(BaseModel):
     """Схема запроса на сохранение отредактированного теста."""
@@ -89,6 +92,7 @@ class QuestionEditResponse(BaseModel):
     options: Optional[dict] = None
     correct_indices: Optional[List[int]] = None
     numeric_answer: Optional[float] = None
+    image_url: Optional[str] = None # <--- ДОБАВЛЕНО
 
 
 class TestEditResponse(BaseModel):

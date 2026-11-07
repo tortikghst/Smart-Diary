@@ -59,7 +59,7 @@ services:
       dockerfile: Dockerfile
     container_name: smart_diary_frontend
     ports:
-      - "80:80" # Открывается на http://localhost
+      - "8081:80" # Открывается на http://localhost
     depends_on:
       - backend
     restart: always

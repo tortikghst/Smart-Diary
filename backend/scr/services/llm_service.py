@@ -1,5 +1,6 @@
 import json
 import httpx
+import traceback
 from scr.config import settings
 
 class YandexGPTService:
@@ -13,34 +14,45 @@ class YandexGPTService:
             "Authorization": f"Bearer {settings.LLM_API_KEY}",
             "Content-Type": "application/json",
             "X-Mlp-Provider": "openrouter",
+            "HTTP-Referer": "https://smart-diary.ru",
+            "X-Title": "Smart Diary"
         }
 
-        if q_type in ("choice", "single_choice", "multiple_choice", "match"):
+        if q_type == "matching":
+            type_instruction = "Сгенерируй все вопросы строго с типом 'matching' (сопоставление пар)."
+        elif q_type in ("choice", "single_choice", "multiple_choice"):
             type_instruction = "Сгенерируй все вопросы строго с типом 'choice' (выбор ответа)."
         elif q_type in ("numeric", "math", "text_input"):
             type_instruction = "Сгенерируй все вопросы строго с типом 'numeric' (ввод числа)."
         else:
-            type_instruction = "Сгенерируй вопросы разных типов: 'choice' и 'numeric'."
+            type_instruction = (
+                "Сгенерируй вопросы РАЗНЫХ типов: обязательно добавь 'choice' (тест), 'numeric' (число) "
+                "и 'matching' (сопоставление). Распредели их равномерно."
+            )
 
-        # 🔥 ЧИСТЫЙ ПРОМПТ 🔥
         system_prompt = (
-            f"Ты — эксперт по предмету '{subject_name}'. "
-            f"Сгенерируй ровно {count} тестовых вопросов СТРОГО по теме: '{topic}'. "
-            f"В поле 'question' напиши ТОЛЬКО текст самого вопроса. "
-            f"НЕ пиши слова 'Тестовый вопрос', 'Вопрос', 'Тема', не повторяй название темы в тексте. "
-            f"Категорически запрещено использовать термины и вопросы из других предметов. "
+            f"Ты — опытный школьный методист, эксперт по ФГОС РФ. "
+            f"Твоя задача — составить проверочную работу по предмету '{subject_name}' на тему '{topic}' для учеников средней школы. "
+            f"Сгенерируй ровно {count} вопросов. "
+            f"Вопросы должны строго соответствовать школьной программе РФ и возрастным особенностям учеников. "
+            f"Категорически запрещено использовать термины и концепции из других предметов. "
+            f"В поле 'question' напиши ТОЛЬКО текст вопроса. Не пиши слова 'Тестовый вопрос', 'Вопрос', не повторяй тему. "
             f"{type_instruction} "
-            f"Если type='choice': добавь 'options' (массив из 3 строк) и 'correct_option_index' (индекс от 0 до 2). "
-            f"Если type='numeric': добавь 'numeric_answer' (число)."
+            f"ПРАВИЛА ФОРМАТИРОВАНИЯ: "
+            f"1. Если type='choice': добавь 'options' (массив ровно из 3 строк) и 'correct_option_index' (индекс от 0 до 2). "
+            f"2. Если type='numeric': добавь 'numeric_answer' (число). "
+            f"3. Если type='matching': добавь 'left' (массив терминов слева) и 'right' (массив определений справа), "
+            f"а также 'correct_matches' (объект, где ключи — элементы из left, а значения — правильные элементы из right). "
+            f"Верни ответ строго в формате JSON без markdown-разметки."
         )
 
         payload = {
             "model": settings.LLM_MODEL,
             "messages": [
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Тема: {topic}"},
+                {"role": "user", "content": f"Тема: {topic}. Предмет: {subject_name}"},
             ],
-            "temperature": 0.2,  # Строго 0.2 для минимума фантазий
+            "temperature": 0.2,
             "response_format": {
                 "type": "json_schema",
                 "json_schema": {
@@ -55,10 +67,13 @@ class YandexGPTService:
                                     "type": "object",
                                     "properties": {
                                         "question": {"type": "string"},
-                                        "type": {"type": "string", "enum": ["choice", "numeric"]},
+                                        "type": {"type": "string", "enum": ["choice", "numeric", "matching"]},
                                         "options": {"type": "array", "items": {"type": "string"}},
                                         "correct_option_index": {"type": "integer"},
                                         "numeric_answer": {"type": "number"},
+                                        "left": {"type": "array", "items": {"type": "string"}},
+                                        "right": {"type": "array", "items": {"type": "string"}},
+                                        "correct_matches": {"type": "object", "additionalProperties": {"type": "string"}}
                                     },
                                     "required": ["question", "type"],
                                     "additionalProperties": False,
@@ -74,26 +89,49 @@ class YandexGPTService:
 
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.post(url, json=payload, headers=headers, timeout=40.0)
+                response = await client.post(url, json=payload, headers=headers, timeout=60.0)
+                
                 if response.status_code != 200:
-                    print(f"⚠️ Caila вернула статус {response.status_code}: {response.text}")
+                    print(f"🚨🚨🚨 CAILA СТАТУС: {response.status_code}", flush=True)
+                    print(f"🚨🚨🚨 ОТВЕТ: {response.text}", flush=True)
                     return None
 
                 result = response.json()
-                raw_text = result["choices"][0]["message"]["content"].strip()
-                raw_text = raw_text.replace("```json", "").replace("```", "").strip()
+                choice = result.get("choices", [{}])[0]
+                message = choice.get("message", {})
                 
-                data = json.loads(raw_text)
-                return data.get("questions", [])
+                data_list = []
+
+                if message.get("tool_calls"):
+                    print("🤖 Модель вернула ответ через tool_calls, парсим...", flush=True)
+                    args_str = message["tool_calls"][0]["function"]["arguments"]
+                    parsed_args = json.loads(args_str)
+                    questions_obj = parsed_args.get("questions", [])
+                    
+                    if isinstance(questions_obj, dict) and "value" in questions_obj:
+                        data_list = questions_obj["value"]
+                    elif isinstance(questions_obj, list):
+                        data_list = questions_obj
+                        
+                elif message.get("content"):
+                    raw_text = message["content"].strip()
+                    raw_text = raw_text.replace("```json", "").replace("```", "").strip()
+                    parsed_json = json.loads(raw_text)
+                    data_list = parsed_json.get("questions", [])
+                
+                if not data_list:
+                    print(f"🚨🚨🚨 CAILA ВЕРНУЛА ПУСТОЙ ОТВЕТ. Полный ответ: {result}", flush=True)
+                    return None
+
+                return data_list
+                
         except Exception as e:
-            print(f"⚠️ Ошибка при запросе к Caila: {e}")
+            print(f"🚨🚨🚨 ОШИБКА В LLM_SERVICE: {repr(e)}", flush=True)
+            traceback.print_exc()
             return None
+
     @staticmethod
     async def generate_text(prompt: str) -> str | None:
-        """
-        Отправляет запрос в Caila для генерации обычного текста (без JSON).
-        Используется для рекомендаций и объяснений.
-        """
         url = "https://caila.io/api/providers/openrouter/v1/chat/completions"
 
         headers = {
@@ -113,13 +151,30 @@ class YandexGPTService:
 
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.post(url, json=payload, headers=headers, timeout=30.0)
+                response = await client.post(url, json=payload, headers=headers, timeout=60.0)
                 if response.status_code != 200:
-                    print(f"⚠️ Caila (text) вернула статус {response.status_code}: {response.text}")
+                    print(f"🚨🚨🚨 CAILA (TEXT) СТАТУС: {response.status_code}", flush=True)
+                    print(f"🚨🚨🚨 ОТВЕТ: {response.text}", flush=True)
                     return None
 
                 result = response.json()
-                return result["choices"][0]["message"]["content"].strip()
+                message = result.get("choices", [{}])[0].get("message", {})
+                return message.get("content", "").strip() if message.get("content") else None
+                
         except Exception as e:
-            print(f"⚠️ Ошибка при запросе текста к Caila: {e}")
+            print(f"🚨🚨🚨 ОШИБКА ПРИ ЗАПРОСЕ ТЕКСТА: {repr(e)}", flush=True)
+            traceback.print_exc()
             return None
+
+    # 👇 НОВЫЙ МЕТОД ДЛЯ ГЕНЕРАЦИИ РАЗБОРА ОШИБОК 👇
+    @staticmethod
+    async def generate_error_explanation(question: str, user_answer: str, correct_answer: str) -> str | None:
+        prompt = (
+            f"Ты — школьный учитель. Ученик ошибся в вопросе: '{question}'.\n"
+            f"Ответ ученика: '{user_answer}'.\n"
+            f"Правильный ответ: '{correct_answer}'.\n\n"
+            f"Объясни, почему ответ ученика неверен, и подробно расскажи, КАК ПРАВИЛЬНО решить это задание "
+            f"или какое правило/формулу нужно было применить. Пиши кратко, но информативно (2-3 предложения), "
+            f"без лишних вступлений. Обращайся к ученику на 'ты'."
+        )
+        return await YandexGPTService.generate_text(prompt)

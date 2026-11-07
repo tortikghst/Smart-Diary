@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { X } from 'lucide-react';
 import { Button } from "../../@/components/ui/button.tsx";
 import bgImage from '@/assets/bg.png';
 import homeIcon from '@/assets/Home-Logo.svg';
@@ -10,8 +11,16 @@ import { getErrorMessage } from '../utils/Errors.ts';
 const QUESTION_TYPES = [
     { id: 'single_choice', label: 'Одиночный выбор' },
     { id: 'multiple_choice', label: 'Множественный выбор' },
+    { id: 'matching', label: 'Сопоставление' },
     { id: 'text_input', label: 'Текстовый ответ' },
-    { id: 'math', label: 'Математика (число)' }
+    { id: 'math', label: 'Математика' }
+];
+
+const MATH_SYMBOLS = [
+    '+', '-', '*', '/', '^', '√',
+    'π', '∞', 'Σ', '∫', 'Δ', 'α',
+    'β', '≤', '≥', '≠', 'x²', 'x³',
+    'sin', 'cos', 'tan', 'ctg', '(', ')'
 ];
 
 const CustomSelect = ({ value, options, onChange, placeholder }: { value: string, options: {id: string, label: string}[], onChange: (val: string) => void, placeholder?: string }) => {
@@ -54,11 +63,213 @@ const CustomSelect = ({ value, options, onChange, placeholder }: { value: string
     );
 };
 
-interface Option { id: string; text: string; isCorrect: boolean; }
-interface Question { id: string; type: string; question: string; options: Option[]; correctAnswerText?: string; }
+interface Option { id: string; text: string; isCorrect: boolean; rightText?: string; }
+interface Question { id: string; type: string; question: string; options: Option[]; correctAnswerText?: string; image_url?: string | null; }
 interface Topic { topic_id: number; topic_title: string; }
 interface TeacherClass { class_id: number; class_name: string; }
 interface UserProfile { subject?: { subject_id: number; }; }
+
+// ============================================================
+// УНИВЕРСАЛЬНЫЙ ПАРСЕР ОТВЕТА БЭКЕНДА
+// ============================================================
+
+// Извлекает массив строк-вариантов и массив правильных индексов из любой формы options.
+// Покрывает: массивы, {options: []}, {values: []}, {items: []}, {variants: []},
+// [{text: "..."}], [{label: "..."}], {correct_indices: []}, {correct_index: 0} и т.д.
+function extractOptionsAndAnswers(options: any, fallbackCorrectIndex: any): {
+    optionsArr: string[],
+    correctIdx: number[]
+} {
+    let optionsArr: string[] = [];
+    let correctIdx: number[] = [];
+
+    // --- 1. Если options сам по себе массив ---
+    if (Array.isArray(options)) {
+        optionsArr = options.map((x: any) => {
+            if (typeof x === 'string') return x;
+            if (x && typeof x === 'object') return String(x.text ?? x.label ?? x.value ?? x.title ?? x.name ?? '');
+            return String(x ?? '');
+        });
+    }
+
+    // --- 2. Если options — объект-обёртка ---
+    if (!optionsArr.length && options && typeof options === 'object' && !Array.isArray(options)) {
+        const arrayKeys = [
+            'options', 'values', 'items', 'variants', 'answers',
+            'choices', 'list', 'entries', 'variants_list', 'answer_options',
+            'option_list', 'possible_answers', 'all_options'
+        ];
+        for (const key of arrayKeys) {
+            const candidate = options[key];
+            if (Array.isArray(candidate)) {
+                optionsArr = candidate.map((x: any) => {
+                    if (typeof x === 'string') return x;
+                    if (x && typeof x === 'object') return String(x.text ?? x.label ?? x.value ?? x.title ?? x.name ?? '');
+                    return String(x ?? '');
+                });
+                break;
+            }
+        }
+    }
+
+    // --- 3. Правильные индексы — перебираем ВСЕ возможные поля ---
+    const collectIndices = (obj: any) => {
+        if (!obj || typeof obj !== 'object') return;
+        const indexKeys = [
+            'correct_indices', 'correct_indexes', 'correct_options', 'correct_answers',
+            'correct_index', 'correct_option_index', 'correct_option', 'answer_index',
+            'answer_indices', 'right_indices', 'right_index', 'right_answer'
+        ];
+        for (const key of indexKeys) {
+            const v = obj[key];
+            if (Array.isArray(v)) {
+                correctIdx = v.map((x: any) => Number(x)).filter((n: number) => !isNaN(n));
+                return;
+            }
+            if (typeof v === 'number') {
+                correctIdx = [v];
+                return;
+            }
+            if (typeof v === 'string' && !isNaN(Number(v))) {
+                correctIdx = [Number(v)];
+                return;
+            }
+        }
+    };
+
+    if (options && typeof options === 'object') collectIndices(options);
+
+    // Fallback: если не нашли внутри options — берём из q.correct_option_index
+    if (correctIdx.length === 0 && fallbackCorrectIndex !== null && fallbackCorrectIndex !== undefined) {
+        if (Array.isArray(fallbackCorrectIndex)) {
+            correctIdx = fallbackCorrectIndex.map(Number).filter((n: number) => !isNaN(n));
+        } else if (typeof fallbackCorrectIndex === 'number') {
+            correctIdx = [fallbackCorrectIndex];
+        } else if (typeof fallbackCorrectIndex === 'string' && !isNaN(Number(fallbackCorrectIndex))) {
+            correctIdx = [Number(fallbackCorrectIndex)];
+        }
+    }
+
+    return { optionsArr, correctIdx };
+}
+
+// Нормализует произвольный type от LLM к нашим 5 типам
+function normalizeQuestionType(rawType: any, q: any, idx: number): string {
+    const t = String(rawType || '').toLowerCase().replace(/[\s_\-]/g, '');
+
+    // ---- numeric / math ----
+    if ([
+        'numeric', 'number', 'math', 'calculation', 'calculate',
+        'equation', 'formula', 'число', 'вычисление', 'математика', 'цифра'
+    ].includes(t)) return 'math';
+
+    // ---- matching ----
+    if ([
+        'matching', 'match', 'pairs', 'correspondence', 'matchingpairs', 'pair',
+        'сопоставление', 'пары', 'соответствие', 'соединение'
+    ].includes(t)) return 'matching';
+
+    // ---- text_input ----
+    if ([
+        'text', 'textinput', 'textanswer', 'input', 'shortanswer', 'short',
+        'open', 'openanswer', 'essay', 'fillinblank', 'fill', 'blank', 'freeform',
+        'freeanswer', 'текст', 'текстовый', 'ввод', 'открытый', 'свободный'
+    ].includes(t)) return 'text_input';
+
+    // ---- multiple_choice ----
+    if ([
+        'multiple', 'multiplechoice', 'multichoice', 'checkbox', 'checkboxes',
+        'multi', 'manychoice', 'many', 'mcq', 'mc', 'multipleselection',
+        'множественный', 'множественныйвыбор', 'чекбокс', 'несколько'
+    ].includes(t)) return 'multiple_choice';
+
+    // ---- single_choice ----
+    if ([
+        'single', 'singlechoice', 'onechoice', 'choice', 'radio', 'one',
+        'options', 'option', 'scq', 'sc', 'singleselection', 'единственный',
+        'одиночный', 'одиночныйвыбор', 'выбор', 'радио', 'один'
+    ].includes(t)) return 'single_choice';
+
+    // ---- Fallback: угадываем по структуре данных ----
+    let guessed = 'text_input';
+    if (q.numeric_answer !== null && q.numeric_answer !== undefined) {
+        guessed = 'math';
+    } else if (q.options && typeof q.options === 'object' &&
+               (Array.isArray(q.options.left) || q.options.correct_matches)) {
+        guessed = 'matching';
+    } else if (q.options && typeof q.options === 'object' && (q.options.is_text || q.options.correct_text)) {
+        guessed = 'text_input';
+    } else {
+        const { optionsArr } = extractOptionsAndAnswers(q.options, q.correct_option_index);
+        if (optionsArr.length > 0) guessed = 'single_choice';
+    }
+
+    console.warn(`⚠️ Вопрос #${idx + 1}: неизвестный тип "${rawType}", угадали как "${guessed}"`, q);
+    return guessed;
+}
+
+// Основной парсер одного вопроса
+function parseBackendQuestion(q: any, idx: number = 0): {
+    frontType: string,
+    mappedOptions: Option[],
+    correctAnswerText: string
+} {
+    const frontType = normalizeQuestionType(q.type, q, idx);
+
+    let mappedOptions: Option[] = [];
+    let correctAnswerText = '';
+
+    if (frontType === 'matching') {
+        const container = (q.options && typeof q.options === 'object' && !Array.isArray(q.options))
+            ? q.options
+            : {};
+        const left: string[] = Array.isArray(container.left) ? container.left : [];
+        const matches: Record<string, string> = (container.correct_matches && typeof container.correct_matches === 'object')
+            ? container.correct_matches
+            : {};
+        mappedOptions = left.map((l: string, i: number) => ({
+            id: String(i),
+            text: l,
+            isCorrect: false,
+            rightText: matches[l] || ''
+        }));
+    } else if (frontType === 'math') {
+        correctAnswerText = (q.numeric_answer !== null && q.numeric_answer !== undefined)
+            ? String(q.numeric_answer)
+            : '';
+    } else if (frontType === 'text_input') {
+        if (q.options && typeof q.options === 'object' && !Array.isArray(q.options)) {
+            correctAnswerText = q.options.correct_text
+                ?? q.options.text
+                ?? q.options.answer
+                ?? q.options.value
+                ?? '';
+        } else if (typeof q.options === 'string') {
+            correctAnswerText = q.options;
+        }
+    } else {
+        // single_choice / multiple_choice — основной кейс, который не работал
+        const { optionsArr, correctIdx } = extractOptionsAndAnswers(q.options, q.correct_option_index);
+
+        mappedOptions = optionsArr.map((text, i) => ({
+            id: String(i),
+            text,
+            isCorrect: correctIdx.includes(i)
+        }));
+    }
+
+    // Диагностика — оставим в проде, не помешает
+    if (mappedOptions.length === 0 && frontType !== 'math' && frontType !== 'text_input') {
+        console.warn(
+            `⚠️ Вопрос #${idx + 1}: тип "${frontType}", но вариантов не найдено. ` +
+            `Что реально пришло:`, JSON.parse(JSON.stringify(q))
+        );
+    }
+
+    return { frontType, mappedOptions, correctAnswerText };
+}
+
+// ============================================================
 
 export default function TestCreatePage() {
     const navigate = useNavigate();
@@ -80,6 +291,7 @@ export default function TestCreatePage() {
     const [isSaving, setIsSaving] = useState(false);
     const [isLoadingTest, setIsLoadingTest] = useState(false);
     const [generatingQuestionId, setGeneratingQuestionId] = useState<string | null>(null);
+    const [isUploading, setIsUploading] = useState<string | null>(null);
     const [user, setUser] = useState<UserProfile | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -111,27 +323,15 @@ export default function TestCreatePage() {
                     setSelectedTopic(String(data.topic_id));
                     setTestName(`Тест #${data.test_id}`);
 
-                    const mapped: Question[] = (data.questions || []).map((q: any) => {
-                        let frontType = q.type === 'numeric' ? 'math' : 'single_choice';
-                        if (q.options?.is_multiple) frontType = 'multiple_choice';
-                        if (q.options?.is_text) frontType = 'text_input';
-
-                        let optionTexts: string[] = [];
-                        if (Array.isArray(q.options)) optionTexts = q.options;
-                        else if (q.options && Array.isArray(q.options.options)) optionTexts = q.options.options;
-
-                        const correctIdx: number[] = Array.isArray(q.correct_indices)
-                            ? q.correct_indices
-                            : (q.correct_option_index !== null && q.correct_option_index !== undefined ? [q.correct_option_index] : []);
-
+                    const mapped: Question[] = (data.questions || []).map((q: any, i: number) => {
+                        const parsed = parseBackendQuestion(q, i);
                         return {
                             id: Math.random().toString(36).slice(2, 11),
-                            type: frontType,
+                            type: parsed.frontType,
                             question: q.question || '',
-                            options: optionTexts.map((text, i) => ({ id: String(i), text, isCorrect: correctIdx.includes(i) })),
-                            correctAnswerText: q.numeric_answer !== null && q.numeric_answer !== undefined
-                                ? String(q.numeric_answer)
-                                : (q.options?.is_text ? (q.options.correct_text || '') : '')
+                            options: parsed.mappedOptions,
+                            correctAnswerText: parsed.correctAnswerText,
+                            image_url: q.image_url || null
                         };
                     });
                     setQuestions(mapped);
@@ -145,6 +345,33 @@ export default function TestCreatePage() {
         fetchInitialData();
     }, [urlTestId, isEditing]);
 
+    const handleImageUpload = async (qId: string, file: File) => {
+        setIsUploading(qId);
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const token = localStorage.getItem('access_token');
+            const res = await fetch('/api/v1/teacher/upload-image', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                updateQuestion(qId, 'image_url', data.image_url);
+                showToast('Картинка загружена!', 'success');
+            } else {
+                showToast('Ошибка загрузки картинки', 'error');
+            }
+        } catch (err) {
+            showToast('Ошибка сети', 'error');
+        } finally {
+            setIsUploading(null);
+        }
+    };
+
     const callAIGenerate = async (count: number, type: string | null = null) => {
         if (!selectedTopic || !selectedClass) {
             showToast('Выберите тему и класс', 'error');
@@ -154,9 +381,13 @@ export default function TestCreatePage() {
             try {
                 await apiFetch(`/teacher/tests/${testId}`, { method: 'DELETE' });
                 setTestId(null);
+<<<<<<< HEAD
             } catch (err) {
                 // игнорируем ошибку удаления старого черновика
             }
+=======
+            } catch (err) {}
+>>>>>>> 731874fcc9f32373ad7d7c8be720a08035fb9b09
         }
 
         try {
@@ -172,6 +403,7 @@ export default function TestCreatePage() {
                 }
             });
 
+<<<<<<< HEAD
             return {
                 test_id: data.test_id,
                 questions: (data.questions || []).map((q: any) => {
@@ -187,6 +419,25 @@ export default function TestCreatePage() {
                         question: q.question || '',
                         options: optionTexts.map((text, i) => ({ id: String(i), text, isCorrect: correctIdx.includes(i) })),
                         correctAnswerText: q.numeric_answer !== null && q.numeric_answer !== undefined ? String(q.numeric_answer) : ''
+=======
+            console.log('📥 СЫРОЙ ОТВЕТ ОТ БЭКА /generate:', JSON.parse(JSON.stringify(data)));
+
+            const rawQuestions: any[] = Array.isArray(data.questions)
+                ? data.questions
+                : (Array.isArray(data.questions?.value) ? data.questions.value : []);
+
+            return {
+                test_id: data.test_id,
+                questions: rawQuestions.map((q: any, i: number) => {
+                    const parsed = parseBackendQuestion(q, i);
+                    return {
+                        id: Math.random().toString(36).slice(2, 11),
+                        type: parsed.frontType,
+                        question: q.question || '',
+                        options: parsed.mappedOptions,
+                        correctAnswerText: parsed.correctAnswerText,
+                        image_url: q.image_url || null
+>>>>>>> 731874fcc9f32373ad7d7c8be720a08035fb9b09
                     };
                 })
             };
@@ -231,7 +482,7 @@ export default function TestCreatePage() {
     const handleAddQuestion = () => {
         setQuestions(prev => [...prev, {
             id: Math.random().toString(36).slice(2, 11), type: 'single_choice', question: '',
-            options: [{ id: '1', text: '', isCorrect: false }, { id: '2', text: '', isCorrect: false }], correctAnswerText: ''
+            options: [{ id: '1', text: '', isCorrect: false }, { id: '2', text: '', isCorrect: false }], correctAnswerText: '', image_url: null
         }]);
     };
 
@@ -244,15 +495,24 @@ export default function TestCreatePage() {
             if (q.id !== id) return q;
             let newOptions = q.options;
             if (newType === 'text_input' || newType === 'math') newOptions = [];
+            else if (newType === 'matching') newOptions = [{ id: '1', text: '', isCorrect: false, rightText: '' }];
             else if ((newType === 'single_choice' || newType === 'multiple_choice') && q.options.length === 0) {
                 newOptions = [{ id: '1', text: '', isCorrect: false }, { id: '2', text: '', isCorrect: false }];
             }
-            return { ...q, type: newType, options: newOptions };
+            return { ...q, type: newType, options: newOptions, correctAnswerText: '' };
         }));
     };
 
     const updateOption = (qId: string, oId: string, text: string) => {
         setQuestions(prev => prev.map(q => q.id === qId ? { ...q, options: q.options.map(o => o.id === oId ? { ...o, text } : o) } : q));
+    };
+
+    const updateOptionRight = (qId: string, oId: string, rightText: string) => {
+        setQuestions(prev => prev.map(q => q.id === qId ? { ...q, options: q.options.map(o => o.id === oId ? { ...o, rightText } : o) } : q));
+    };
+
+    const removeOption = (qId: string, oId: string) => {
+        setQuestions(prev => prev.map(q => q.id === qId ? { ...q, options: q.options.filter(o => o.id !== oId) } : q));
     };
 
     const toggleCorrectOption = (qId: string, oId: string, isMultiple: boolean) => {
@@ -294,14 +554,43 @@ export default function TestCreatePage() {
 
             const payload = {
                 topic_id: Number(selectedTopic),
+                title: testName,
                 questions: questions.map(q => {
                     const isChoice = q.type === 'single_choice' || q.type === 'multiple_choice';
+
+                    if (q.type === 'matching') {
+                        const left: string[] = [];
+                        const right: string[] = [];
+                        const correct_matches: Record<string, string> = {};
+
+                        q.options.forEach(opt => {
+                            if (opt.text.trim() && opt.rightText?.trim()) {
+                                left.push(opt.text.trim());
+                                right.push(opt.rightText.trim());
+                                correct_matches[opt.text.trim()] = opt.rightText.trim();
+                            }
+                        });
+
+                        return {
+                            type: q.type,
+                            question: q.question,
+                            image_url: q.image_url || null,
+                            options: { left, right, correct_matches },
+                            correct_indices: null,
+                            numeric_answer: null
+                        };
+                    }
+
                     return {
                         type: q.type,
-                        title: testName,
                         question: q.question,
-                        options: isChoice ? q.options.map(o => o.text) : (q.type === 'text_input' ? [q.correctAnswerText || ''] : null),
-                        correct_indices: isChoice ? q.options.map((o, i) => o.isCorrect ? i : -1).filter(i => i !== -1) : null,
+                        image_url: q.image_url || null,
+                        options: isChoice
+                            ? q.options.map(o => o.text)
+                            : (q.type === 'text_input' ? [q.correctAnswerText || ''] : null),
+                        correct_indices: isChoice
+                            ? q.options.map((o, i) => o.isCorrect ? i : -1).filter(i => i !== -1)
+                            : null,
                         numeric_answer: q.type === 'math' && q.correctAnswerText ? Number(q.correctAnswerText) : null
                     };
                 })
@@ -469,15 +758,69 @@ export default function TestCreatePage() {
                                             onChange={(val) => handleTypeChange(q.id, val)}
                                         />
 
-                                        <textarea
-                                            value={q.question}
-                                            onChange={(e) => updateQuestion(q.id, 'question', e.target.value)}
-                                            placeholder="Текст вопроса..."
-                                            className="w-full bg-[#F4F8F8] p-3 rounded-xl font-bold text-[#596070] outline-none resize-none h-20 text-sm focus:ring-2 focus:ring-[#94A9BE] transition-all"
-                                        />
+                                        <div className="flex flex-col gap-2">
+                                            <textarea
+                                                value={q.question}
+                                                onChange={(e) => updateQuestion(q.id, 'question', e.target.value)}
+                                                placeholder="Текст вопроса..."
+                                                className="w-full bg-[#F4F8F8] p-3 rounded-xl font-bold text-[#596070] outline-none resize-none h-20 text-sm focus:ring-2 focus:ring-[#94A9BE] transition-all"
+                                            />
+
+                                            {q.type === 'math' && (
+                                                <div className="grid grid-cols-6 gap-1.5">
+                                                    {MATH_SYMBOLS.map(symbol => (
+                                                        <button
+                                                            key={symbol}
+                                                            onMouseDown={(e) => e.preventDefault()}
+                                                            onClick={() => {
+                                                                const currentVal = q.question || '';
+                                                                updateQuestion(q.id, 'question', currentVal + symbol);
+                                                            }}
+                                                            className="h-9 bg-[#EBF1F1] rounded-lg text-[#3b506c] font-extrabold text-[14px] hover:bg-[#B2CDE0] transition-colors shadow-sm flex items-center justify-center"
+                                                        >
+                                                            {symbol}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="flex flex-col gap-2 mt-1">
+                                            {q.image_url ? (
+                                                <div className="relative w-full h-32 rounded-xl overflow-hidden border border-[#C9D9E6] group">
+                                                    <img src={q.image_url} alt="Условие" className="w-full h-full object-contain bg-black/5" />
+                                                    <button
+                                                        onClick={() => updateQuestion(q.id, 'image_url', null)}
+                                                        className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <label className={`flex items-center justify-center w-full h-12 bg-[#F4F8F8] border-2 border-dashed border-[#C9D9E6] rounded-xl cursor-pointer hover:bg-[#e8f0f0] transition-colors ${isUploading === q.id ? 'opacity-50 pointer-events-none' : ''}`}>
+                                                    <span className="text-[#859bb1] font-bold text-sm flex items-center gap-2">
+                                                        {isUploading === q.id ? 'Загрузка...' : '📷 Прикрепить картинку'}
+                                                    </span>
+                                                    <input
+                                                        type="file"
+                                                        accept="image/jpeg,image/png,image/webp"
+                                                        className="hidden"
+                                                        onChange={(e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (file) handleImageUpload(q.id, file);
+                                                        }}
+                                                    />
+                                                </label>
+                                            )}
+                                        </div>
 
                                         {(q.type === 'single_choice' || q.type === 'multiple_choice') && (
                                             <div className="flex flex-col gap-2 mt-1">
+                                                {q.options.length === 0 && (
+                                                    <p className="text-[12px] text-[#D48B8B] font-bold">
+                                                        ⚠️ Варианты не найдены. Добавь вручную или нажми «✨ ИИ»
+                                                    </p>
+                                                )}
                                                 {q.options.map((opt, oIndex) => (
                                                     <div key={opt.id} className="flex items-center gap-2">
                                                         <button
@@ -505,17 +848,69 @@ export default function TestCreatePage() {
                                             </div>
                                         )}
 
+                                        {q.type === 'matching' && (
+                                            <div className="flex flex-col gap-2 mt-2">
+                                                <label className="block text-[#596070] font-bold text-xs mb-1">Пары (Левое и Правое)</label>
+                                                {q.options.length === 0 && (
+                                                    <p className="text-[12px] text-[#D48B8B] font-bold">
+                                                        ⚠️ Пары не найдены. Добавь вручную.
+                                                    </p>
+                                                )}
+                                                {q.options.map((opt) => (
+                                                    <div key={opt.id} className="flex items-center gap-2">
+                                                        <input
+                                                            value={opt.text}
+                                                            onChange={(e) => updateOption(q.id, opt.id, e.target.value)}
+                                                            placeholder="Левая часть"
+                                                            className="flex-1 bg-[#F4F8F8] p-2 rounded-lg font-bold text-[#596070] text-sm outline-none focus:ring-2 focus:ring-[#94A9BE] transition-all"
+                                                        />
+                                                        <span className="text-[#859bb1]">-</span>
+                                                        <input
+                                                            value={opt.rightText || ''}
+                                                            onChange={(e) => updateOptionRight(q.id, opt.id, e.target.value)}
+                                                            placeholder="Правая часть"
+                                                            className="flex-1 bg-[#F4F8F8] p-2 rounded-lg font-bold text-[#596070] text-sm outline-none focus:ring-2 focus:ring-[#94A9BE] transition-all"
+                                                        />
+                                                        <button onClick={() => removeOption(q.id, opt.id)} className="text-[#D48B8B] p-1">
+                                                            <X size={16}/>
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                                <button
+                                                    onClick={() => updateQuestion(q.id, 'options', [...q.options, { id: Date.now().toString(), text: '', isCorrect: false, rightText: '' }])}
+                                                    className="text-[#94A9BE] font-bold text-xs text-left mt-1 hover:underline"
+                                                >
+                                                    + Добавить пару
+                                                </button>
+                                            </div>
+                                        )}
+
                                         {(q.type === 'math' || q.type === 'text_input') && (
-                                            <div className="mt-2">
-                                                <label className="block text-[#596070] font-bold text-xs mb-1">
-                                                    {q.type === 'math' ? 'Правильный ответ (число)' : 'Правильный текстовый ответ'}
-                                                </label>
+                                            <div className="mt-2 flex flex-col gap-2">
                                                 <input
                                                     value={q.correctAnswerText || ''}
                                                     onChange={(e) => updateQuestion(q.id, 'correctAnswerText', e.target.value)}
-                                                    placeholder={q.type === 'math' ? 'Например: 42' : 'Введите ответ...'}
+                                                    placeholder={q.type === 'math' ? 'Правильный ответ (число)' : 'Правильный текстовый ответ'}
                                                     className="w-full bg-[#F4F8F8] p-3 rounded-xl font-bold text-[#596070] text-sm outline-none focus:ring-2 focus:ring-[#94A9BE] transition-all border border-dashed border-[#C9D9E6]"
                                                 />
+
+                                                {q.type === 'math' && (
+                                                    <div className="grid grid-cols-6 gap-1.5 mt-1">
+                                                        {MATH_SYMBOLS.map(symbol => (
+                                                            <button
+                                                                key={symbol}
+                                                                onMouseDown={(e) => e.preventDefault()}
+                                                                onClick={() => {
+                                                                    const currentVal = q.correctAnswerText || '';
+                                                                    updateQuestion(q.id, 'correctAnswerText', currentVal + symbol);
+                                                                }}
+                                                                className="h-9 bg-[#EBF1F1] rounded-lg text-[#3b506c] font-extrabold text-[14px] hover:bg-[#B2CDE0] transition-colors shadow-sm flex items-center justify-center"
+                                                            >
+                                                                {symbol}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </div>

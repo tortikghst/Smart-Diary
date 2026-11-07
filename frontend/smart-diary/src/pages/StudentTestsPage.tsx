@@ -79,7 +79,7 @@ export default function StudentTestsPage() {
                                     <div className="flex justify-between items-start mb-3">
                                         <div className="flex-1 pr-2">
                                             <p className="text-[11px] font-extrabold text-[#94A9BE] uppercase tracking-wider mb-1">{test.subject_name}</p>
-                                            <h3 className="text-[16px] font-extrabold text-[#3b506c] leading-tight">{test.topic_title}</h3>
+                                            <h3 className="text-[16px] font-extrabold text-[#3b506c] leading-tight">{test.topic_title || 'Без названия'}</h3>
                                         </div>
                                         {test.best_percent !== null && (
                                             <div className="bg-[#EBF1F1] text-[#94A9BE] px-2.5 py-1 rounded-lg flex items-center gap-1 shrink-0">
@@ -89,11 +89,13 @@ export default function StudentTestsPage() {
                                         )}
                                     </div>
 
-                                    <div className="flex items-center justify-between mt-2">
+                                    <div className="flex items-end justify-between mt-2">
                                         <div className="flex flex-col">
-                                            <span className="text-[11px] font-bold text-[#859bb1]">Попытки</span>
-                                            <span className="text-[14px] font-extrabold text-[#3b506c]">
-                                                {test.attempts_used} / {test.attempts_used + test.attempts_left}
+                                            <span className="text-[11px] font-bold text-[#859bb1]">
+                                                Попытки: {test.attempts_used} / {test.attempts_used + test.attempts_left}
+                                            </span>
+                                            <span className="text-[11px] font-bold text-[#859bb1] mt-0.5">
+                                                Срок сдачи: <span className="text-[#7FB280]">Без дедлайна</span>
                                             </span>
                                         </div>
                                         <Button

@@ -74,7 +74,7 @@ const SeatItem = ({ seat, student, onClick }: { seat: Seat, student: Student | n
         return (
             <div
                 ref={setDropRef}
-                className={`w-full h-12 rounded-[16px] bg-[#C9D9E6]/40 transition-all duration-200 ${
+                className={`w-full h-12 rounded-[16px] bg-[#C9D9E6]/40 transition-shadow duration-200 ${
                     isOver ? 'ring-2 ring-[#4A5568] scale-105 bg-[#C9D9E6]/80' : ''
                 }`}
             />
@@ -95,7 +95,7 @@ const SeatItem = ({ seat, student, onClick }: { seat: Seat, student: Student | n
             {...attributes}
             onClick={onClick}
             title={student.full_name}
-            className={`w-full h-12 rounded-[16px] flex flex-col justify-center items-center text-white shadow-sm transition-all touch-none cursor-grab active:cursor-grabbing bg-[#4A5568] relative px-1 ${
+            className={`w-full h-12 rounded-[16px] flex flex-col justify-center items-center text-white shadow-sm transition-shadow touch-none cursor-grab active:cursor-grabbing bg-[#4A5568] relative px-1 ${
                 isOver ? 'ring-2 ring-[#94A9BE] scale-105' : ''
             }`}
         >
@@ -108,13 +108,12 @@ const SeatItem = ({ seat, student, onClick }: { seat: Seat, student: Student | n
                 </span>
             )}
 
+            {/* Отрисовываем только первый маркер, так как теперь разрешен только один */}
             {seat.markers && seat.markers.length > 0 && (
-                <div className="absolute -top-1.5 -right-1.5 flex gap-0.5 bg-white/90 backdrop-blur-sm px-1 py-0.5 rounded-full shadow-md border border-gray-100 z-10">
-                    {seat.markers.map(m => (
-                        <span key={m} className="text-[10px] leading-none">
-                            {AVAILABLE_MARKERS.find(am => am.id === m)?.icon}
-                        </span>
-                    ))}
+                <div className="absolute -top-1.5 -right-1.5 flex items-center justify-center w-5 h-5 bg-white/95 backdrop-blur-sm rounded-full shadow-md border border-gray-100 z-20">
+                    <span className="text-[10px] leading-none">
+                        {AVAILABLE_MARKERS.find(am => am.id === seat.markers[0])?.icon}
+                    </span>
                 </div>
             )}
         </div>
@@ -149,12 +148,15 @@ export default function SeatingPage() {
     };
 
     const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8,
+            },
+        })
     );
 
     const fetchSeating = async () => {
         try {
-            // 1. Если имя класса не передано, подтягиваем из списка классов
             if (!location.state?.className) {
                 try {
                     const classesData = await apiFetch<TeacherClass[]>('/teacher/classes');
@@ -166,18 +168,15 @@ export default function SeatingPage() {
                 }
             }
 
-            // 2. Загружаем рассадку (если 404 — значит её еще нет, это нормально)
             try {
                 const seatingData = await apiFetch<SeatingData>(`/seating/${classId}`);
                 setData(seatingData);
                 setTempRows(seatingData.layout_json.grid?.rows || 5);
                 setTempDesks(Math.ceil((seatingData.layout_json.grid?.cols || 6) / 2));
             } catch (err) {
-                // Игнорируем 404 (нет рассадки), остальные ошибки пробрасываем
                 if (!(err as any).isNotFound) throw err;
             }
 
-            // 3. Загружаем учеников
             const studentsData = await apiFetch<Student[]>(`/classes/${classId}/students`);
             setStudents(studentsData);
 
@@ -199,7 +198,6 @@ export default function SeatingPage() {
         setIsGenerating(true);
 
         try {
-            // Сохраняем текущие маркеры учеников
             const savedMarkers: Record<number, string[]> = {};
             data?.layout_json.seats.forEach(s => {
                 if (s.student_id !== 0 && s.markers.length > 0) {
@@ -209,15 +207,14 @@ export default function SeatingPage() {
 
             const colsToGenerate = data?.layout_json?.grid?.cols || 6;
 
-            // 1. Генерация
             const newData = await apiFetch<SeatingData>(`/seating/${classId}/generate?cols=${colsToGenerate}`, {
                 method: 'POST',
             });
 
-            // Возвращаем маркеры на места
             const updatedSeats = newData.layout_json.seats.map((seat: Seat) => {
                 if (seat.student_id !== 0 && savedMarkers[seat.student_id]) {
-                    return { ...seat, markers: savedMarkers[seat.student_id] };
+                    // При генерации тоже оставляем только первый маркер, чтобы не сломать логику
+                    return { ...seat, markers: [savedMarkers[seat.student_id][0]] };
                 }
                 return seat;
             });
@@ -227,7 +224,6 @@ export default function SeatingPage() {
                 layout_json: { ...newData.layout_json, seats: updatedSeats }
             };
 
-            // 2. Сохраняем сгенерированную рассадку
             await apiFetch(`/seating/${classId}`, {
                 method: 'PUT',
                 json: { layout_json: finalData.layout_json }
@@ -273,7 +269,7 @@ export default function SeatingPage() {
             document.body.appendChild(a);
             a.click();
             a.remove();
-            window.URL.revokeObjectURL(url); // Очищаем память
+            window.URL.revokeObjectURL(url);
 
             showToast('Картинка скачана!', 'success');
         } catch (err) {
@@ -284,9 +280,8 @@ export default function SeatingPage() {
     const toggleMarker = async (markerId: string) => {
         if (!activeSeat || !data) return;
 
-        const newMarkers = activeSeat.markers.includes(markerId)
-            ? activeSeat.markers.filter(m => m !== markerId)
-            : [...activeSeat.markers, markerId];
+        // ЛОГИКА РАДИО-КНОПКИ: если этот маркер уже выбран - убираем, иначе ставим ТОЛЬКО его
+        const newMarkers = activeSeat.markers.includes(markerId) ? [] : [markerId];
 
         const updatedSeats = data.layout_json.seats.map(s =>
             s.row === activeSeat.row && s.col === activeSeat.col
@@ -338,16 +333,14 @@ export default function SeatingPage() {
         const totalStudents = data.layout_json.seats.length;
         const requiredRows = Math.ceil(totalStudents / actualCols);
 
-        // АВТОМАТИЧЕСКОЕ РАСШИРЕНИЕ: сетка не может быть меньше, чем нужно
         const finalRows = Math.max(tempRows, requiredRows);
 
         if (finalRows > tempRows) {
-            showToast(`Сетка расширена до ${finalRows} рядов, чтобы все поместились`, 'success');
+            showToast(`Сетка расширена до ${finalRows} рядов`, 'success');
         } else {
             showToast('Сетка обновлена', 'success');
         }
 
-        // Перераспределяем учеников в новую сетку (никого не теряем!)
         const studentsList = data.layout_json.seats
             .filter(s => s.student_id !== 0)
             .map(s => ({ student_id: s.student_id, markers: s.markers }));
@@ -386,15 +379,8 @@ export default function SeatingPage() {
         setIsGridSettingsOpen(false);
     };
 
-    const container = {
-        hidden: { opacity: 0 },
-        show: { opacity: 1, transition: { staggerChildren: 0.1 } }
-    };
-
-    const item = {
-        hidden: { opacity: 0, y: 30 },
-        show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 100 } }
-    };
+    const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } };
+    const item = { hidden: { opacity: 0, y: 30 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 100 } } };
 
     const rows = data?.layout_json?.grid?.rows || 5;
     const cols = data?.layout_json?.grid?.cols || 6;
@@ -602,7 +588,7 @@ export default function SeatingPage() {
                         >
                             <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-6" />
 
-                            <h3 className="text-2xl font-extrabold text-[#596070] text-center mb-1">Маркеры</h3>
+                            <h3 className="text-2xl font-extrabold text-[#596070] text-center mb-1">Особенность</h3>
                             <p className="text-center text-[#859bb1] text-sm mb-6 font-bold truncate">
                                 {students.find(s => s.student_id === activeSeat.student_id)?.full_name}
                             </p>

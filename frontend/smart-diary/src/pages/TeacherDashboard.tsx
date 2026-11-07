@@ -48,8 +48,6 @@ export default function TeacherDashboard() {
                 setUser(userData);
                 setDashboard(dashboardData);
             } catch (err) {
-                // 401 (протухший токен) apiFetch обработает сам и перекинет на '/'
-                // Здесь ловим остальные ошибки (например, 500 на бэкенде)
                 console.error("Ошибка загрузки дашборда:", getErrorMessage(err));
             } finally {
                 setIsLoading(false);
@@ -142,28 +140,62 @@ export default function TeacherDashboard() {
                     variants={item}
                     className="bg-white/80 backdrop-blur-md mx-4 p-5 rounded-[30px] shadow-[0px_4px_20px_rgba(0,0,0,0.05)] min-h-[240px]"
                 >
-                    <h2 className="text-center text-[20px] font-bold text-[#596070] mb-6">Сводка по классам</h2>
+                    <h2 className="text-center text-[20px] font-bold text-[#596070] mb-2">Сводка по классам</h2>
+                    <p className="text-[12px] font-bold text-[#859bb1] text-center mb-6">Средний балл (от 1 до 5)</p>
 
                     {isLoading ? (
                         <div className="text-center text-[#596070]">Загрузка графика...</div>
                     ) : (
-                        <div className="flex items-end justify-center gap-4 h-40">
-                            {dashboard?.classes.map((cls, index) => {
-                                const heightPercent = cls.avg_score ? `${(cls.avg_score / 5) * 100}%` : '20%';
-                                const color = cls.is_problem ? 'bg-red-300' : index % 3 === 0 ? 'bg-[#B2CDE0]' : index % 3 === 1 ? 'bg-[#94A9BE]' : 'bg-[#EBF1F1]';
+                        <div className="flex flex-col w-full">
+                            <div className="flex w-full">
+                                {/* Ось Y */}
+                                <div className="flex flex-col justify-between text-[10px] font-bold text-[#859bb1] pr-2 h-44 items-end pb-8">
+                                    <span>5.0</span>
+                                    <span>4.0</span>
+                                    <span>3.0</span>
+                                    <span>2.0</span>
+                                    <span>1.0</span>
+                                </div>
+                                
+                                {/* Сам график */}
+                                <div className="flex items-end justify-around w-full h-44 border-l border-b border-gray-300 pb-1 relative">
+                                    {/* Сетка (линии на фоне) */}
+                                    <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20 pb-8">
+                                        <div className="border-b border-gray-400 w-full h-0"></div>
+                                        <div className="border-b border-gray-400 w-full h-0"></div>
+                                        <div className="border-b border-gray-400 w-full h-0"></div>
+                                        <div className="border-b border-gray-400 w-full h-0"></div>
+                                    </div>
 
-                                return (
-                                    <motion.div
-                                        key={cls.class_id}
-                                        initial={{ height: 0 }}
-                                        animate={{ height: heightPercent }}
-                                        transition={{ delay: 0.5 + (index * 0.1), duration: 0.8 }}
-                                        className={`w-14 ${color} rounded-t-xl flex justify-center pt-2`}
-                                    >
-                                        <span className="text-[#596070] font-bold text-[14px]">{cls.class_name}</span>
-                                    </motion.div>
-                                );
-                            })}
+                                    {dashboard?.classes.map((cls, index) => {
+                                        const score = cls.avg_score || 0;
+                                        const heightPercent = `${(score / 5) * 100}%`;
+                                        const color = cls.is_problem ? 'bg-[#D48B8B]' : 'bg-[#94A9BE]';
+
+                                        return (
+                                            <div key={cls.class_id} className="relative flex flex-col items-center justify-end h-full w-10 z-10 group pb-8">
+                                                
+                                                {/* Столбик с цифрой ВНУТРИ */}
+                                                <motion.div
+                                                    initial={{ height: 0 }}
+                                                    animate={{ height: heightPercent }}
+                                                    transition={{ delay: 0.3 + (index * 0.1), duration: 0.6, type: "spring" }}
+                                                    className={`w-full ${color} rounded-t-md shadow-sm relative flex justify-center items-start pt-1`}
+                                                >
+                                                    <span className="text-[11px] font-extrabold text-white drop-shadow-md">
+                                                        {score > 0 ? score.toFixed(1) : ''}
+                                                    </span>
+                                                </motion.div>
+                                                
+                                                {/* Название класса снизу */}
+                                                <div className="absolute bottom-0 h-8 flex items-center justify-center w-full">
+                                                    <span className="text-[#596070] font-bold text-[12px]">{cls.class_name}</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         </div>
                     )}
                 </motion.div>

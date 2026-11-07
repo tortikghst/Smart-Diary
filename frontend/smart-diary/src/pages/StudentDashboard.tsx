@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, ChevronLeft } from "lucide-react";
+import { ChevronRight, ChevronLeft, ChevronDown, Check } from "lucide-react";
 import { Button } from "../../@/components/ui/button";
 import { Card, CardContent } from "../../@/components/ui/card";
 import bgImage from '../assets/bg.png';
@@ -62,6 +62,9 @@ export default function StudentDashboard() {
     const [isLoading, setIsLoading] = useState(true);
     const [isGradesLoading, setIsGradesLoading] = useState(false);
     const [selectedGrade, setSelectedGrade] = useState<{ subject: string; grade: number; date: string; topic: string } | null>(null);
+    
+    // Стейт для выпадающего списка предметов
+    const [isSubjectDropdownOpen, setIsSubjectDropdownOpen] = useState(false);
 
     const navigate = useNavigate();
 
@@ -123,13 +126,14 @@ export default function StudentDashboard() {
         fetchGrades();
     }, [dashboard?.subjects, activeSubjectIndex]);
 
+    // Понятное склонение слова "долг"
     const getDebtsText = (count: number) => {
-        if (count === 0) return "У вас сейчас нет задолженностей.";
+        if (count === 0) return "У вас нет долгов";
         const lastDigit = count % 10;
         const lastTwo = count % 100;
-        if (lastDigit === 1 && lastTwo !== 11) return `У вас ${count} задолженность.`;
-        if ([2, 3, 4].includes(lastDigit) && ![12, 13, 14].includes(lastTwo)) return `У вас ${count} задолженности.`;
-        return `У вас ${count} задолженностей.`;
+        if (lastDigit === 1 && lastTwo !== 11) return `У вас ${count} долг`;
+        if ([2, 3, 4].includes(lastDigit) && ![12, 13, 14].includes(lastTwo)) return `У вас ${count} долга`;
+        return `У вас ${count} долгов`;
     };
 
     const getTestsText = (count: number) => {
@@ -156,7 +160,6 @@ export default function StudentDashboard() {
     const myClass = rating?.items?.find(c => c.class_id === rating?.my_class_id);
 
     let displayClasses = [...top3];
-    // Если класса ученика нет в топ-3, добавляем его
     if (myClass && !top3.some(c => c.class_id === myClass.class_id)) {
         displayClasses.push(myClass);
     }
@@ -175,7 +178,7 @@ export default function StudentDashboard() {
 
     return (
         <div className="relative min-h-screen bg-[#f2f6f9] overflow-x-hidden flex justify-center font-sans">
-            <div className="fixed inset-0 bg-cover bg-center bg-no-repeat opacity-40 z-0" style={{ backgroundImage: `url(${bgImage})` }} />
+            <div className="fixed inset-0 w-full h-[100dvh] bg-cover bg-center bg-no-repeat opacity-40 z-0" style={{ backgroundImage: `url(${bgImage})` }} />
 
             <motion.div variants={container} initial="hidden" animate="show" className="relative z-10 w-full max-w-[430px] flex flex-col gap-4 pb-10">
 
@@ -186,7 +189,6 @@ export default function StudentDashboard() {
                         <p className="text-[14px] font-semibold text-[#556b86] mt-1">Ученик {user?.class_name} класса</p>
                     </div>
 
-                    {/* Огонек в шапке */}
                     <motion.button
                         whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                         onClick={() => navigate('/student/mascot')}
@@ -219,7 +221,15 @@ export default function StudentDashboard() {
                                 >
                                     <ChevronLeft size={24}/>
                                 </button>
-                                <span>{dashboard?.subjects?.[activeSubjectIndex]?.name || "Нет предметов"}</span>
+                                
+                                <button 
+                                    onClick={() => setIsSubjectDropdownOpen(true)}
+                                    className="flex items-center gap-1 hover:text-[#94A9BE] transition-colors"
+                                >
+                                    {dashboard?.subjects?.[activeSubjectIndex]?.name || "Нет предметов"}
+                                    <ChevronDown size={18} className="opacity-50" />
+                                </button>
+
                                 <button
                                     onClick={() => canNext && setActiveSubjectIndex(prev => prev + 1)}
                                     disabled={!canNext}
@@ -307,38 +317,45 @@ export default function StudentDashboard() {
                     </Card>
                 </motion.div>
 
-                {/* Задолженности */}
+                {/* Задолженности (С ТЕМНО-БОРДОВЫМ АКЦЕНТОМ) */}
                 <motion.div variants={item}>
                     <motion.div
                         whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                         onClick={() => navigate('/student/debts')}
                         className="bg-white/80 backdrop-blur-md mx-4 p-5 rounded-[30px] shadow-sm cursor-pointer flex justify-between items-center relative"
                     >
-                        <p className={`text-[16px] font-extrabold text-left underline decoration-[#3b506c] decoration-2 underline-offset-4 pr-6 text-[#3b506c]`}>
-                            {getDebtsText(dashboard?.debts_count || 0)}
-                        </p>
+                        <div>
+                            <p className={`text-[16px] font-extrabold text-left underline decoration-2 underline-offset-4 ${
+                                dashboard?.debts_count && dashboard.debts_count > 0 
+                                ? 'text-[#7b1a2c] decoration-[#7b1a2c]' 
+                                : 'text-[#3b506c] decoration-[#3b506c]'
+                            }`}>
+                                {getDebtsText(dashboard?.debts_count || 0)}
+                            </p>
+                            {dashboard?.debts_count && dashboard.debts_count > 0 ? (
+                                <p className="text-[11px] font-bold text-[#7b1a2c]/70 mt-1.5">Нажмите, чтобы посмотреть задания</p>
+                            ) : null}
+                        </div>
                         <ChevronRight className="w-5 h-5 text-[#B2CDE0] flex-shrink-0" />
                     </motion.div>
                 </motion.div>
 
-                {/* Лидеры (с классом ученика) */}
+                {/* Лидеры (Рейтинг классов) */}
                 <motion.div variants={item}>
                     <Card className="bg-white/80 backdrop-blur-md mx-4 rounded-[30px] shadow-sm border-none overflow-hidden">
                         <CardContent className="p-5 pb-0">
-                            <div className="text-center text-[18px] font-extrabold text-[#3b506c] mb-1">Лидеры по классам</div>
-                            <div className="flex justify-center items-center gap-3 text-[14px] font-bold text-[#3b506c] mb-6">
-                                <span>←</span> ВПР <span>→</span>
+                            <div className="text-center text-[18px] font-extrabold text-[#3b506c] mb-1">Рейтинг классов</div>
+                            <div className="flex justify-center items-center gap-2 text-[11px] font-bold text-[#859bb1] mb-6 text-center">
+                                Топ классов параллели по среднему баллу за ВПР
                             </div>
 
                             <div className="flex justify-center items-end gap-2 h-[160px] pb-6">
                                 {displayClasses.length > 0 ? displayClasses.map((cls, index) => {
-                                    const heightPx = Math.max(50, (cls.avg_score / maxScore) * 130);
+                                    const heightPx = Math.max(60, (cls.avg_score / maxScore) * 130);
                                     const isMyClass = cls.class_id === rating?.my_class_id;
 
-                                    // Определяем цвета
                                     let colorClass = 'bg-[#EBF1F1] text-[#5f7a93]';
                                     if (isMyClass && index >= 3) {
-                                        // Если мой класс добавлен вне топ-3
                                         colorClass = 'bg-[#1c274c] text-white shadow-md';
                                     } else if (index === 0) {
                                         colorClass = 'bg-[#94A9BE] text-white';
@@ -354,12 +371,19 @@ export default function StudentDashboard() {
                                             initial={{ height: 0 }}
                                             animate={{ height: `${heightPx}px` }}
                                             transition={{ delay: 0.3 + (index * 0.1), duration: 0.8, type: "spring" }}
-                                            className={`w-[60px] ${colorClass} rounded-[20px] flex flex-col justify-start items-center pt-3 shadow-sm relative`}
+                                            className={`w-[60px] ${colorClass} rounded-[20px] flex flex-col justify-between items-center py-2 shadow-sm relative`}
                                         >
-                                            <span className="text-[16px] font-extrabold">{cls.class_name}</span>
-                                            {isMyClass && (
-                                                <span className="text-[9px] font-bold mt-1 opacity-80">(Мой)</span>
-                                            )}
+                                            <div className="flex flex-col items-center w-full px-1">
+                                                <span className="text-[15px] font-extrabold truncate w-full text-center">{cls.class_name}</span>
+                                                {isMyClass && (
+                                                    <span className="text-[9px] font-bold mt-0.5 opacity-80">(Мой)</span>
+                                                )}
+                                            </div>
+                                            
+                                            {/* 👇 ОЦЕНКА ВНУТРИ СТОЛБИКА 👇 */}
+                                            <span className="text-[13px] font-black opacity-90">
+                                                {cls.avg_score.toFixed(1)}
+                                            </span>
                                         </motion.div>
                                     )
                                 }) : (
@@ -376,7 +400,7 @@ export default function StudentDashboard() {
                         <CardContent className="p-6">
                             <div className="text-[18px] font-extrabold text-[#3b506c] mb-2">Тесты</div>
                             <p className="text-[14px] font-bold text-[#3b506c] mb-5 leading-snug">
-                                В данный момент доступно<br/>{getTestsText(dashboard?.available_tests?.length || 0)}.
+                                В данный момент доступно<br/>{getTestsText(dashboard?.available_tests?.length || 0)}
                             </p>
                             <Button
                                 className="w-full h-12 bg-[#B2CDE0] hover:bg-[#94A9BE] text-[#3b506c] font-extrabold text-[16px] rounded-[20px] transition-all"
@@ -389,6 +413,45 @@ export default function StudentDashboard() {
                 </motion.div>
 
             </motion.div>
+
+            {/* ВЫПАДАЮЩАЯ ПАНЕЛЬ ВЫБОРА ПРЕДМЕТА */}
+            <AnimatePresence>
+                {isSubjectDropdownOpen && (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
+                            onClick={() => setIsSubjectDropdownOpen(false)}
+                        />
+                        <motion.div
+                            initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+                            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                            className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-[40px] p-6 pb-10 shadow-2xl flex flex-col items-center max-w-[430px] mx-auto"
+                        >
+                            <div className="w-12 h-1.5 bg-gray-200 rounded-full mb-6" />
+                            <h3 className="text-[20px] font-extrabold text-[#3b506c] mb-4">Выбери предмет</h3>
+
+                            <div className="w-full flex flex-col gap-2 max-h-[50vh] overflow-y-auto no-scrollbar">
+                                {dashboard?.subjects?.map((sub, idx) => {
+                                    const isActive = idx === activeSubjectIndex;
+                                    return (
+                                        <button
+                                            key={sub.subject_id}
+                                            onClick={() => { setActiveSubjectIndex(idx); setIsSubjectDropdownOpen(false); }}
+                                            className={`w-full flex items-center justify-between p-4 rounded-[20px] font-bold text-[16px] transition-colors ${
+                                                isActive ? 'bg-[#B2CDE0] text-[#3b506c]' : 'bg-[#f2f6f9] text-[#556b86] hover:bg-[#e2eaf1]'
+                                            }`}
+                                        >
+                                            {sub.name}
+                                            {isActive && <Check size={20} className="text-[#3b506c]" />}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
 
             {/* Модалка с подробностями оценки */}
             <AnimatePresence>

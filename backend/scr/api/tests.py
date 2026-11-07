@@ -1,3 +1,4 @@
+import json
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +15,7 @@ from scr.schemas.test_schemas import (
     AIFeedbackItem,
 )
 from scr.config import settings
+
 tests_router = APIRouter(prefix="/tests", tags=["Тестирование"])
 
 MAX_ATTEMPTS = 3  # C4: лимит попыток на published-тест
@@ -186,6 +188,10 @@ async def get_ai_feedback(
             if db_question.numeric_answer is not None:
                 correct_ans_str = f"{float(db_question.numeric_answer):g}"
 
+        elif "matching" in q_type and db_question.options:
+            correct_matches = db_question.options.get("correct_matches", {})
+            correct_ans_str = json.dumps(correct_matches, ensure_ascii=False)
+
         # Генерируем пояснение
         explanation = f"Правильный ответ: {correct_ans_str}."
         if settings.USE_MOCK_LLM:
@@ -193,12 +199,13 @@ async def get_ai_feedback(
         else:
             try:
                 from scr.services.llm_service import YandexGPTService
-                prompt = (
-                    f"Кратко объясни школьнику, почему на вопрос '{db_question.question}' "
-                    f"правильный ответ — '{correct_ans_str}', а его ответ '{user_ans_str}' неверен. "
-                    f"Ответь одним коротким предложением."
+                
+                # 👇 ИСПОЛЬЗУЕМ НОВЫЙ МЕТОД ДЛЯ РАЗБОРА 👇
+                ai_exp = await YandexGPTService.generate_error_explanation(
+                    question=db_question.question,
+                    user_answer=str(user_ans_str),
+                    correct_answer=str(correct_ans_str)
                 )
-                ai_exp = await YandexGPTService.generate_text(prompt)
                 if ai_exp:
                     explanation = ai_exp
             except Exception as e:
@@ -209,7 +216,8 @@ async def get_ai_feedback(
             question=db_question.question,
             your_answer=str(user_ans_str),
             correct_answer=str(correct_ans_str),
-            explanation=explanation
+            explanation=explanation,
+            image_url=db_question.image_url
         ))
 
     return AIFeedbackResponse(attempt_id=attempt_id, items=items)

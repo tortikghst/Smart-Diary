@@ -7,6 +7,8 @@ from scr.api.student import student_router
 from scr.api.tests import tests_router
 from scr.api.seating import seating_router
 from scr.api.bot import bot_router
+import os
+from fastapi.staticfiles import StaticFiles
 
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,8 +29,7 @@ api_router.include_router(journal_router)
 api_router.include_router(student_router)
 api_router.include_router(tests_router)
 api_router.include_router(seating_router)
-api_router.include_router(bot_router)
-
+#api_router.include_router(bot_router) 
 
 async def lifespan(app: FastAPI):
     await init_db()
@@ -44,11 +45,15 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",      # Vite dev
         "http://localhost:3000",      # если фронт на CRA
-        "https://<адрес-фронта>",     # ← подставь боевой адрес
+        "https://sovolud.ru",
+        "https://www.sovolud.ru",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+os.makedirs("static/uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="static/uploads"), name="uploads")
 
 app.include_router(api_router)
+app.include_router(bot_router)
