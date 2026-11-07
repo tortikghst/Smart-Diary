@@ -272,7 +272,30 @@ class UserRepository:
                 if " ".join(user_text.split()) == " ".join(correct_text.split()):
                     is_question_correct = True
                     question_points = Decimal("1.0")
+            # --- 5. Сопоставление (matching) ---
+            elif q.type == QuestionType.MATCHING:
+                correct_matches = q.options.get("correct_matches", {}) if q.options else {}
+                try:
+                    user_pairs = {}
+                    if user_ans:
+                        ans_str = str(user_ans).strip()
+                        # 1. Пробуем распарсить как JSON (современный формат)
+                        if ans_str.startswith('{') and ans_str.endswith('}'):
+                            import json
+                            user_pairs = json.loads(ans_str)
+                        # 2. Фолбэк на старый формат "Лево1-Право1,Лево2-Право2"
+                        else:
+                            for pair in ans_str.split(','):
+                                if '-' in pair:
+                                    left, right = pair.split('-', 1)
+                                    user_pairs[left.strip()] = right.strip()
 
+                    if user_pairs and user_pairs == correct_matches:
+                        is_question_correct = True
+                        question_points = Decimal("1.0")
+                except Exception as e:
+                    print(f"⚠️ Ошибка проверки matching: {e}")
+                    pass
             total_earned_points += question_points
 
             db_answer = TestAnswerModel(
@@ -882,12 +905,29 @@ class UserRepository:
             if ai_questions and isinstance(ai_questions, list):
                 for ai_q in ai_questions:
                     q_type = ai_q.get("type", "choice")
+                    
+                    # 1. ЧИСЛОВЫЕ ОТВЕТЫ
                     if q_type == "numeric":
                         db.add(TestQuestionModel(
                             test_id=new_test.test_id, type=QuestionType.NUMERIC,
                             question=ai_q.get("question", "Решите задачу"),
                             numeric_answer=float(ai_q.get("numeric_answer", 0.0)),
                         ))
+                    
+                    # 2. СОПОСТАВЛЕНИЯ (НОВОЕ)
+                    elif q_type == "matching":
+                        options_dict = {
+                            "left": ai_q.get("left", []),
+                            "right": ai_q.get("right", []),
+                            "correct_matches": ai_q.get("correct_matches", {})
+                        }
+                        db.add(TestQuestionModel(
+                            test_id=new_test.test_id, type=QuestionType.MATCHING,
+                            question=ai_q.get("question", "Сопоставьте элементы"),
+                            options=options_dict,
+                        ))
+                        
+                    # 3. ТЕСТОВЫЕ ВОПРОСЫ
                     else:
                         db.add(TestQuestionModel(
                             test_id=new_test.test_id, type=QuestionType.CHOICE,
@@ -896,6 +936,7 @@ class UserRepository:
                             correct_option_index=int(ai_q.get("correct_option_index", 0)),
                         ))
             else:
+                # Если ИИ упал, делаем заглушку
                 print("⚠️ [LLM-FALLBACK] Сбой LLM, откат на шаблон.")
                 db.add(TestQuestionModel(
                     test_id=new_test.test_id, type=QuestionType.CHOICE,
@@ -1233,7 +1274,11 @@ class UserRepository:
                     "correct_text": correct_text
                 }
                 correct_idx = None
-            else: # single_choice
+            elif q.type == "matching":
+                db_type = QuestionType.MATCHING
+                options_dict = q.options
+                correct_idx = None
+            else:
                 options_dict = {"options": q.options}
 
             db.add(TestQuestionModel(
@@ -1250,7 +1295,7 @@ class UserRepository:
             test.topic_id = payload.topic_id
         if payload.title:
             test.title = payload.title   
-        await db.flush()
+        await db.flush()  
         return await UserRepository.get_test_with_questions(db, test_id)
 
     @staticmethod

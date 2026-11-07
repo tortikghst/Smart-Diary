@@ -1,3 +1,4 @@
+import json
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +15,7 @@ from scr.schemas.test_schemas import (
     AIFeedbackItem,
 )
 from scr.config import settings
+
 tests_router = APIRouter(prefix="/tests", tags=["Тестирование"])
 
 MAX_ATTEMPTS = 3  # C4: лимит попыток на published-тест
@@ -185,6 +187,12 @@ async def get_ai_feedback(
         elif "numeric" in q_type:
             if db_question.numeric_answer is not None:
                 correct_ans_str = f"{float(db_question.numeric_answer):g}"
+                
+        # 👇 ДОБАВЛЕНА ОБРАБОТКА MATCHING 👇
+        elif "matching" in q_type and db_question.options:
+            correct_matches = db_question.options.get("correct_matches", {})
+            # Превращаем словарь в JSON-строку, чтобы фронтенд её распарсил
+            correct_ans_str = json.dumps(correct_matches, ensure_ascii=False)
 
         # Генерируем пояснение
         explanation = f"Правильный ответ: {correct_ans_str}."

@@ -46,6 +46,7 @@ class TestCreatedBy(str, PyEnum):
 class QuestionType(str, PyEnum):
     CHOICE = "choice"
     NUMERIC = "numeric"
+    MATCHING = "matching"
 
 
 class GradeSource(str, PyEnum):

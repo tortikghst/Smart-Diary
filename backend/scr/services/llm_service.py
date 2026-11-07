@@ -18,12 +18,17 @@ class YandexGPTService:
             "X-Title": "Smart Diary"
         }
 
-        if q_type in ("choice", "single_choice", "multiple_choice", "match"):
+        if q_type == "matching":
+            type_instruction = "Сгенерируй все вопросы строго с типом 'matching' (сопоставление пар)."
+        elif q_type in ("choice", "single_choice", "multiple_choice"):
             type_instruction = "Сгенерируй все вопросы строго с типом 'choice' (выбор ответа)."
         elif q_type in ("numeric", "math", "text_input"):
             type_instruction = "Сгенерируй все вопросы строго с типом 'numeric' (ввод числа)."
         else:
-            type_instruction = "Сгенерируй вопросы разных типов: 'choice' и 'numeric'."
+            type_instruction = (
+                "Сгенерируй вопросы РАЗНЫХ типов: обязательно добавь 'choice' (тест), 'numeric' (число) "
+                "и 'matching' (сопоставление). Распредели их равномерно."
+            )
 
         system_prompt = (
             f"Ты — опытный школьный методист, эксперт по ФГОС РФ. "
@@ -33,8 +38,11 @@ class YandexGPTService:
             f"Категорически запрещено использовать термины и концепции из других предметов. "
             f"В поле 'question' напиши ТОЛЬКО текст вопроса. Не пиши слова 'Тестовый вопрос', 'Вопрос', не повторяй тему. "
             f"{type_instruction} "
-            f"Если type='choice': добавь 'options' (массив ровно из 3 строк) и 'correct_option_index' (индекс от 0 до 2). "
-            f"Если type='numeric': добавь 'numeric_answer' (число). "
+            f"ПРАВИЛА ФОРМАТИРОВАНИЯ: "
+            f"1. Если type='choice': добавь 'options' (массив ровно из 3 строк) и 'correct_option_index' (индекс от 0 до 2). "
+            f"2. Если type='numeric': добавь 'numeric_answer' (число). "
+            f"3. Если type='matching': добавь 'left' (массив терминов слева) и 'right' (массив определений справа), "
+            f"а также 'correct_matches' (объект, где ключи — элементы из left, а значения — правильные элементы из right). "
             f"Верни ответ строго в формате JSON без markdown-разметки."
         )
 
@@ -59,10 +67,13 @@ class YandexGPTService:
                                     "type": "object",
                                     "properties": {
                                         "question": {"type": "string"},
-                                        "type": {"type": "string", "enum": ["choice", "numeric"]},
+                                        "type": {"type": "string", "enum": ["choice", "numeric", "matching"]},
                                         "options": {"type": "array", "items": {"type": "string"}},
                                         "correct_option_index": {"type": "integer"},
                                         "numeric_answer": {"type": "number"},
+                                        "left": {"type": "array", "items": {"type": "string"}},
+                                        "right": {"type": "array", "items": {"type": "string"}},
+                                        "correct_matches": {"type": "object", "additionalProperties": {"type": "string"}}
                                     },
                                     "required": ["question", "type"],
                                     "additionalProperties": False,
@@ -86,11 +97,37 @@ class YandexGPTService:
                     return None
 
                 result = response.json()
-                raw_text = result["choices"][0]["message"]["content"].strip()
-                raw_text = raw_text.replace("```json", "").replace("```", "").strip()
+                choice = result.get("choices", [{}])[0]
+                message = choice.get("message", {})
                 
-                data = json.loads(raw_text)
-                return data.get("questions", [])
+                data_list = []
+
+                # 👇 1. ПРОВЕРЯЕМ TOOL_CALLS (как делает Llama 3.3) 👇
+                if message.get("tool_calls"):
+                    print("🤖 Модель вернула ответ через tool_calls, парсим...", flush=True)
+                    args_str = message["tool_calls"][0]["function"]["arguments"]
+                    parsed_args = json.loads(args_str)
+                    
+                    questions_obj = parsed_args.get("questions", [])
+                    
+                    # Llama иногда оборачивает массив в {"type": "array", "value": [...]}
+                    if isinstance(questions_obj, dict) and "value" in questions_obj:
+                        data_list = questions_obj["value"]
+                    elif isinstance(questions_obj, list):
+                        data_list = questions_obj
+                        
+                # 👇 2. ПРОВЕРЯЕМ CONTENT (как делают другие модели) 👇
+                elif message.get("content"):
+                    raw_text = message["content"].strip()
+                    raw_text = raw_text.replace("```json", "").replace("```", "").strip()
+                    parsed_json = json.loads(raw_text)
+                    data_list = parsed_json.get("questions", [])
+                
+                if not data_list:
+                    print(f"🚨🚨🚨 CAILA ВЕРНУЛА ПУСТОЙ ОТВЕТ. Полный ответ: {result}", flush=True)
+                    return None
+
+                return data_list
                 
         except Exception as e:
             print(f"🚨🚨🚨 ОШИБКА В LLM_SERVICE: {repr(e)}", flush=True)
@@ -125,7 +162,9 @@ class YandexGPTService:
                     return None
 
                 result = response.json()
-                return result["choices"][0]["message"]["content"].strip()
+                message = result.get("choices", [{}])[0].get("message", {})
+                return message.get("content", "").strip() if message.get("content") else None
+                
         except Exception as e:
             print(f"🚨🚨🚨 ОШИБКА ПРИ ЗАПРОСЕ ТЕКСТА: {repr(e)}", flush=True)
             traceback.print_exc()

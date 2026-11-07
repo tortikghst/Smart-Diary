@@ -119,6 +119,12 @@ export default function JournalPage() {
                     </div>
                 ) : (
                     <motion.div variants={item} className="mt-4 px-4 flex flex-col">
+                        
+                        {/* ПОДСКАЗКА ПРО СВАЙП */}
+                        <div className="text-center text-[11px] font-bold text-[#859bb1] mb-2">
+                            ← Свайпните влево/вправо, чтобы посмотреть другие даты →
+                        </div>
+
                         <AnimatePresence mode="wait">
                             <motion.div
                                 key={page}

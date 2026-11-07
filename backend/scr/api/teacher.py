@@ -332,6 +332,10 @@ async def get_test_for_edit(
         if q_type_str == "numeric" or q_type_str == "math":
             numeric_answer = float(q.numeric_answer) if q.numeric_answer is not None else None
             opts = None
+        elif q_type_str == "matching":
+            # 👇 ДЛЯ СОПОСТАВЛЕНИЙ ОСТАВЛЯЕМ options КАК ЕСТЬ (словарь с left, right, correct_matches)
+            opts = q.options
+            correct_indices = None
         else:
             if opts.get("is_multiple"):
                 correct_indices = opts.get("correct_indices", [])
@@ -347,7 +351,7 @@ async def get_test_for_edit(
             options=opts,
             correct_indices=correct_indices,
             numeric_answer=numeric_answer,
-            image_url=q.image_url  # <--- ИСПРАВЛЕНО: используем q, а не db_question
+            image_url=q.image_url
         ))
 
     return TestEditResponse(
@@ -356,7 +360,6 @@ async def get_test_for_edit(
         created_by=test.created_by.value if hasattr(test.created_by, "value") else str(test.created_by),
         status=test.status,
         questions=questions
-        # <--- УБРАНА строка image_url=db_question.image_url, здесь ей не место
     )
 @teacher_router.delete("/tests/{test_id}", status_code=status.HTTP_200_OK)
 async def delete_test(

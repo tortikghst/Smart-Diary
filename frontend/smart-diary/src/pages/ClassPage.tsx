@@ -167,9 +167,16 @@ export default function ClassPage() {
                 </motion.header>
 
                 <motion.div variants={item} className="mt-6 px-5">
-                    <h2 className="text-[22px] font-extrabold text-[#596070] leading-tight mb-4">
+                    <h2 className="text-[22px] font-extrabold text-[#596070] leading-tight mb-2">
                         УСПЕВАЕМОСТЬ ПО ПРЕДМЕТУ:<br/>МАТЕМАТИКА
                     </h2>
+                    
+                    {/* 👇 ДИНАМИЧЕСКИЙ ТЕКСТ ПОДСКАЗКИ 👇 */}
+                    <p className="text-[12px] text-[#859bb1] font-bold mb-4 transition-all duration-300">
+                        {activeChart === 'bar'
+                            ? "График показывает средний балл по темам. Чем выше столбик — тем лучше класс усвоил тему."
+                            : "Круговая диаграмма показывает распределение оценок в классе. В центре — средний балл."}
+                    </p>
 
                     <div className="relative flex items-center justify-center mb-6 min-h-[48px]">
                         <AnimatePresence mode="wait">
@@ -237,7 +244,7 @@ export default function ClassPage() {
                                     transition={{ duration: 0.3 }}
                                     className="flex-1 flex flex-col w-full"
                                 >
-                                    <div className="flex w-full h-[200px]">
+                                    <div className="flex w-full h-[220px]">
                                         <div className="flex flex-col justify-between text-[10px] font-bold text-[#859bb1] pr-2 h-[160px] items-end shrink-0 pb-1">
                                             <span>5.0</span>
                                             <span>4.0</span>
@@ -248,16 +255,16 @@ export default function ClassPage() {
                                         
                                         <div 
                                             ref={scrollRef}
-                                            className="flex-1 overflow-x-auto [&::-webkit-scrollbar]:hidden relative h-[160px] border-l border-b border-gray-300 pb-1 snap-x snap-mandatory"
+                                            className="flex-1 overflow-x-auto [&::-webkit-scrollbar]:hidden relative h-[200px] border-l border-b border-gray-300 snap-x snap-mandatory"
                                         >
-                                            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
+                                            <div className="absolute inset-x-0 top-0 h-[160px] flex flex-col justify-between pointer-events-none opacity-20">
                                                 <div className="border-b border-gray-400 w-full h-0"></div>
                                                 <div className="border-b border-gray-400 w-full h-0"></div>
                                                 <div className="border-b border-gray-400 w-full h-0"></div>
                                                 <div className="border-b border-gray-400 w-full h-0"></div>
                                             </div>
 
-                                            <div className="flex gap-2 min-w-max h-full items-end relative z-10 px-2">
+                                            <div className="flex gap-2 min-w-max items-end relative z-10 px-2 h-full pb-1">
                                                 {data?.topics_avg?.map((topic, index) => {
                                                     const heightPercent = `${Math.max((topic.avg_score / 5) * 100, 5)}%`;
                                                     const isActive = index === topicIndex;
@@ -276,31 +283,21 @@ export default function ClassPage() {
                                                                     isActive ? 'bg-[#596070] shadow-md' : 'bg-[#94A9BE] group-hover:bg-[#596070]'
                                                                 }`}
                                                             >
-                                                                {/* Тултип теперь ВНУТРИ столбика, чтобы не обрезался */}
                                                                 <div className="absolute top-1 left-1/2 -translate-x-1/2 bg-[#1e293b] text-white text-[10px] font-bold py-0.5 px-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none shadow-md">
                                                                     {topic.avg_score} б.
                                                                 </div>
                                                             </motion.div>
+                                                            
+                                                            <div className="h-10 flex items-start justify-center mt-2 w-full">
+                                                                <span className={`text-[10px] font-bold text-center leading-[1.1] line-clamp-3 w-full ${
+                                                                    isActive ? 'text-[#596070]' : 'text-[#859bb1]'
+                                                                }`}>
+                                                                    {topic.topic_title}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     );
                                                 })}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex w-full mt-2 pl-[28px]">
-                                        <div className="flex-1 overflow-x-auto [&::-webkit-scrollbar]:hidden">
-                                            <div className="flex gap-2 min-w-max px-2">
-                                                {data?.topics_avg?.map((topic, index) => (
-                                                    <div key={topic.topic_id} className="w-[72px] flex justify-center snap-center">
-                                                        {/* Убрали break-words, чтобы слова не рвались посередине */}
-                                                        <span className={`text-[10px] font-bold text-center leading-[1.1] line-clamp-3 w-full ${
-                                                            index === topicIndex ? 'text-[#596070]' : 'text-[#859bb1]'
-                                                        }`}>
-                                                            {topic.topic_title}
-                                                        </span>
-                                                    </div>
-                                                ))}
                                             </div>
                                         </div>
                                     </div>

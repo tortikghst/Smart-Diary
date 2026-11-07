@@ -65,7 +65,7 @@ export default function StudentTestsPage() {
                                 <PlayCircle size={40} />
                             </div>
                             <h2 className="text-[20px] font-extrabold text-[#3b506c] mb-2">Тестов пока нет</h2>
-                            <p className="text-[#859bb1] text-sm font-bold">Учитель еще не назначил новые тесты, Отдыхайте!</p>
+                            <p className="text-[#859bb1] text-sm font-bold">Учитель еще не назначил новые тесты. Отдыхайте!</p>
                         </div>
                     ) : (
                         <div className="flex flex-col gap-4">
@@ -89,11 +89,13 @@ export default function StudentTestsPage() {
                                         )}
                                     </div>
 
-                                    <div className="flex items-center justify-between mt-2">
+                                    <div className="flex items-end justify-between mt-2">
                                         <div className="flex flex-col">
-                                            <span className="text-[11px] font-bold text-[#859bb1]">Попытки</span>
-                                            <span className="text-[14px] font-extrabold text-[#3b506c]">
-                                                {test.attempts_used} / {test.attempts_used + test.attempts_left}
+                                            <span className="text-[11px] font-bold text-[#859bb1]">
+                                                Попытки: {test.attempts_used} / {test.attempts_used + test.attempts_left}
+                                            </span>
+                                            <span className="text-[11px] font-bold text-[#859bb1] mt-0.5">
+                                                Срок сдачи: <span className="text-[#7FB280]">Без дедлайна</span>
                                             </span>
                                         </div>
                                         <Button
