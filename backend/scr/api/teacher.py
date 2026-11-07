@@ -347,6 +347,7 @@ async def get_test_for_edit(
         questions.append(QuestionEditResponse(
             question_id=q.question_id,
             type=q_type_str,
+            title=q.question,
             question=q.question,
             options=opts,
             correct_indices=correct_indices,
@@ -357,6 +358,7 @@ async def get_test_for_edit(
     return TestEditResponse(
         test_id=test.test_id,
         topic_id=test.topic_id,
+        title=test.title,
         created_by=test.created_by.value if hasattr(test.created_by, "value") else str(test.created_by),
         status=test.status,
         questions=questions

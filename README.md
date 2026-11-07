@@ -78,20 +78,26 @@
 
 ## 🎬 Демо
 
-<table>
-  <tr>
-    <td align="center" width="50%">
-      <h3>👩‍🏫 Учитель</h3>
-      <a href="docs/screencast_teacher_1.mp4"><b>▶️ Смотреть скринкаст</b></a>
-      <br /><sub>Аналитика класса → рассадка → ИИ-тест</sub>
-    </td>
-    <td align="center" width="50%">
-      <h3>🧒 Ученик</h3>
-      <a href="docs/screencast_student.mp4"><b>▶️ Смотреть скринкаст</b></a>
-      <br /><sub>Тест → разбор ошибок → долги → огонёк</sub>
-    </td>
-  </tr>
-</table>
+<div align="center">
+  <table>
+    <tr>
+      <th width="50%">👨‍🏫 <b>Учитель</b></th>
+      <th width="50%">🎓 <b>Ученик</b></th>
+    </tr>
+    <tr>
+      <td align="center" valign="top">
+        <img src="docs/screencast_teacher_finally1.gif" width="100%" alt="Скринкаст учителя">
+        <br>
+        <sub>Аналитика класса → рассадка → ИИ-тест</sub>
+      </td>
+      <td align="center" valign="top">
+        <img src="docs/screencast_student_finally.gif" width="100%" alt="Скринкаст ученика">
+        <br>
+        <sub>Тест → разбор ошибок → долги → огонёк</sub>
+      </td>
+    </tr>
+  </table>
+</div>
 
 ### 🚀 Попробуйте сейчас
 
@@ -388,7 +394,17 @@ docker compose up --build
 <!-- | … | Backend | -->
 =======
 Проект создан на хакатоне **«Идея Фикс»** командой **«Совёнки»**.
+<<<<<<< HEAD
 
 <!-- Добавьте ссылки на участников, например: -->
 <!-- [@tortikghst](https://github.com/tortikghst) -->
 >>>>>>> 731874fcc9f32373ad7d7c8be720a08035fb9b09
+=======
+  <h3>📄 Презентация идеи с первого этапа</h3>
+  <a href="docs/презентация идеи.pdf" target="_blank">
+    <img src="docs/Prewiev.png" width="60%" alt="Обложка презентации" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+  </a>
+  <br>
+  <sub><i>(Нажмите на картинку, чтобы открыть PDF)</i></sub>
+</div>
+>>>>>>> 7b43870b0eeaedf3426429e015b36c881a3733bf
