@@ -331,7 +331,7 @@ docker compose up --build
 Проект создан на хакатоне **«Идея Фикс»** командой **«Совёнки»**.
   <h3>📄 Презентация идеи с первого этапа</h3>
   <a href="docs/презентация идеи.pdf" target="_blank">
-    <img src="docs/logo.png" width="60%" alt="Обложка презентации" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+    <img src="docs/logo.jpg" width="60%" alt="Обложка презентации" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
   </a>
   <br>
   <sub><i>(Нажмите на картинку, чтобы открыть PDF)</i></sub>
