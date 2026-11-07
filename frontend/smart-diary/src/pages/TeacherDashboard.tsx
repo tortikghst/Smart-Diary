@@ -140,16 +140,16 @@ export default function TeacherDashboard() {
                     variants={item}
                     className="bg-white/80 backdrop-blur-md mx-4 p-5 rounded-[30px] shadow-[0px_4px_20px_rgba(0,0,0,0.05)] min-h-[240px]"
                 >
-                    <h2 className="text-center text-[20px] font-bold text-[#596070] mb-6">Сводка по классам</h2>
+                    <h2 className="text-center text-[20px] font-bold text-[#596070] mb-2">Сводка по классам</h2>
+                    <p className="text-[12px] font-bold text-[#859bb1] text-center mb-6">Средний балл (от 1 до 5)</p>
 
                     {isLoading ? (
                         <div className="text-center text-[#596070]">Загрузка графика...</div>
                     ) : (
                         <div className="flex flex-col w-full">
-                            <span className="text-[12px] font-bold text-[#859bb1] text-center mb-2">Средний балл по классам (от 1 до 5)</span>
                             <div className="flex w-full">
                                 {/* Ось Y */}
-                                <div className="flex flex-col justify-between text-[10px] font-bold text-[#859bb1] pr-2 h-40 items-end">
+                                <div className="flex flex-col justify-between text-[10px] font-bold text-[#859bb1] pr-2 h-44 items-end pb-8">
                                     <span>5.0</span>
                                     <span>4.0</span>
                                     <span>3.0</span>
@@ -158,9 +158,9 @@ export default function TeacherDashboard() {
                                 </div>
                                 
                                 {/* Сам график */}
-                                <div className="flex items-end justify-around w-full h-40 border-l border-b border-gray-300 pb-1 relative">
+                                <div className="flex items-end justify-around w-full h-44 border-l border-b border-gray-300 pb-1 relative">
                                     {/* Сетка (линии на фоне) */}
-                                    <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
+                                    <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20 pb-8">
                                         <div className="border-b border-gray-400 w-full h-0"></div>
                                         <div className="border-b border-gray-400 w-full h-0"></div>
                                         <div className="border-b border-gray-400 w-full h-0"></div>
@@ -168,24 +168,29 @@ export default function TeacherDashboard() {
                                     </div>
 
                                     {dashboard?.classes.map((cls, index) => {
-                                        // Высота от 0 до 100% в зависимости от балла (макс 5)
-                                        const heightPercent = cls.avg_score ? `${(cls.avg_score / 5) * 100}%` : '0%';
-                                        const color = cls.is_problem ? 'bg-[#D48B8B]' : index % 3 === 0 ? 'bg-[#B2CDE0]' : index % 3 === 1 ? 'bg-[#94A9BE]' : 'bg-[#EBF1F1]';
+                                        const score = cls.avg_score || 0;
+                                        const heightPercent = `${(score / 5) * 100}%`;
+                                        const color = cls.is_problem ? 'bg-[#D48B8B]' : 'bg-[#94A9BE]';
 
                                         return (
-                                            <div key={cls.class_id} className="relative flex flex-col items-center justify-end h-full w-12 z-10 group">
-                                                {/* Тултип с точным баллом при наведении */}
-                                                <div className="absolute -top-6 bg-[#3b506c] text-white text-[10px] font-bold py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none">
-                                                    {cls.avg_score ? cls.avg_score.toFixed(1) : '0'} б.
-                                                </div>
+                                            <div key={cls.class_id} className="relative flex flex-col items-center justify-end h-full w-10 z-10 group pb-8">
                                                 
+                                                {/* Столбик с цифрой ВНУТРИ */}
                                                 <motion.div
                                                     initial={{ height: 0 }}
                                                     animate={{ height: heightPercent }}
-                                                    transition={{ delay: 0.5 + (index * 0.1), duration: 0.8, type: "spring" }}
-                                                    className={`w-full ${color} rounded-t-md shadow-sm`}
-                                                />
-                                                <span className="text-[#596070] font-bold text-[12px] mt-2">{cls.class_name}</span>
+                                                    transition={{ delay: 0.3 + (index * 0.1), duration: 0.6, type: "spring" }}
+                                                    className={`w-full ${color} rounded-t-md shadow-sm relative flex justify-center items-start pt-1`}
+                                                >
+                                                    <span className="text-[11px] font-extrabold text-white drop-shadow-md">
+                                                        {score > 0 ? score.toFixed(1) : ''}
+                                                    </span>
+                                                </motion.div>
+                                                
+                                                {/* Название класса снизу */}
+                                                <div className="absolute bottom-0 h-8 flex items-center justify-center w-full">
+                                                    <span className="text-[#596070] font-bold text-[12px]">{cls.class_name}</span>
+                                                </div>
                                             </div>
                                         );
                                     })}

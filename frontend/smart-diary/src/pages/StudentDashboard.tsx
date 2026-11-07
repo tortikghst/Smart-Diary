@@ -327,8 +327,8 @@ export default function StudentDashboard() {
                         <div>
                             <p className={`text-[16px] font-extrabold text-left underline decoration-2 underline-offset-4 ${
                                 dashboard?.debts_count && dashboard.debts_count > 0 
-                                ? 'text-[#7b1a2c] decoration-[#7b1a2c]' // Темно-бордовый
-                                : 'text-[#3b506c] decoration-[#3b506c]' // Обычный синий
+                                ? 'text-[#7b1a2c] decoration-[#7b1a2c]' 
+                                : 'text-[#3b506c] decoration-[#3b506c]'
                             }`}>
                                 {getDebtsText(dashboard?.debts_count || 0)}
                             </p>
@@ -340,7 +340,7 @@ export default function StudentDashboard() {
                     </motion.div>
                 </motion.div>
 
-                {/* Лидеры */}
+                {/* Лидеры (Рейтинг классов) */}
                 <motion.div variants={item}>
                     <Card className="bg-white/80 backdrop-blur-md mx-4 rounded-[30px] shadow-sm border-none overflow-hidden">
                         <CardContent className="p-5 pb-0">
@@ -351,7 +351,7 @@ export default function StudentDashboard() {
 
                             <div className="flex justify-center items-end gap-2 h-[160px] pb-6">
                                 {displayClasses.length > 0 ? displayClasses.map((cls, index) => {
-                                    const heightPx = Math.max(50, (cls.avg_score / maxScore) * 130);
+                                    const heightPx = Math.max(60, (cls.avg_score / maxScore) * 130);
                                     const isMyClass = cls.class_id === rating?.my_class_id;
 
                                     let colorClass = 'bg-[#EBF1F1] text-[#5f7a93]';
@@ -371,12 +371,19 @@ export default function StudentDashboard() {
                                             initial={{ height: 0 }}
                                             animate={{ height: `${heightPx}px` }}
                                             transition={{ delay: 0.3 + (index * 0.1), duration: 0.8, type: "spring" }}
-                                            className={`w-[60px] ${colorClass} rounded-[20px] flex flex-col justify-start items-center pt-3 shadow-sm relative`}
+                                            className={`w-[60px] ${colorClass} rounded-[20px] flex flex-col justify-between items-center py-2 shadow-sm relative`}
                                         >
-                                            <span className="text-[16px] font-extrabold">{cls.class_name}</span>
-                                            {isMyClass && (
-                                                <span className="text-[9px] font-bold mt-1 opacity-80">(Мой)</span>
-                                            )}
+                                            <div className="flex flex-col items-center w-full px-1">
+                                                <span className="text-[15px] font-extrabold truncate w-full text-center">{cls.class_name}</span>
+                                                {isMyClass && (
+                                                    <span className="text-[9px] font-bold mt-0.5 opacity-80">(Мой)</span>
+                                                )}
+                                            </div>
+                                            
+                                            {/* 👇 ОЦЕНКА ВНУТРИ СТОЛБИКА 👇 */}
+                                            <span className="text-[13px] font-black opacity-90">
+                                                {cls.avg_score.toFixed(1)}
+                                            </span>
                                         </motion.div>
                                     )
                                 }) : (

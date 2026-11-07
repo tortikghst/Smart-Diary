@@ -1,6 +1,7 @@
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { HelpCircle, X } from 'lucide-react';
 import { Button } from "../../@/components/ui/button.tsx";
 import bgImage from '@/assets/bg.png';
 import homeIcon from '@/assets/Home-Logo.svg';
@@ -51,6 +52,8 @@ export default function ClassPage() {
 
     const [aiRecommendation, setAiRecommendation] = useState<string | null>(null);
     const [isAiLoading, setIsAiLoading] = useState(true);
+
+    const [isInfoOpen, setIsInfoOpen] = useState(false);
 
     useEffect(() => {
         const fetchAnalytics = async () => {
@@ -110,15 +113,8 @@ export default function ClassPage() {
         setTopicIndex((prev) => (prev - 1 + data.topics_avg.length) % data.topics_avg.length);
     };
 
-    const container = {
-        hidden: { opacity: 0 },
-        show: { opacity: 1, transition: { staggerChildren: 0.1 } }
-    };
-
-    const item = {
-        hidden: { opacity: 0, y: 30 },
-        show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 100 } }
-    };
+    const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } };
+    const item = { hidden: { opacity: 0, y: 30 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 100 } } };
 
     const totalGrades = data ? (data.grade_distribution.grade_5 + data.grade_distribution.grade_4 + data.grade_distribution.grade_3 + data.grade_distribution.grade_2) : 0;
 
@@ -171,7 +167,6 @@ export default function ClassPage() {
                         УСПЕВАЕМОСТЬ ПО ПРЕДМЕТУ:<br/>МАТЕМАТИКА
                     </h2>
                     
-                    {/* 👇 ДИНАМИЧЕСКИЙ ТЕКСТ ПОДСКАЗКИ 👇 */}
                     <p className="text-[12px] text-[#859bb1] font-bold mb-4 transition-all duration-300">
                         {activeChart === 'bar'
                             ? "График показывает средний балл по темам. Чем выше столбик — тем лучше класс усвоил тему."
@@ -221,8 +216,7 @@ export default function ClassPage() {
                         </div>
                     </div>
 
-                    <div className="bg-white/60 backdrop-blur-xl rounded-[40px] p-6 shadow-[0px_10px_30px_rgba(0,0,0,0.05)] border border-white/50 min-h-[320px] flex flex-col justify-between overflow-hidden">
-
+                    <div className="bg-white/60 backdrop-blur-xl rounded-[40px] p-6 shadow-[0px_10px_30px_rgba(0,0,0,0.05)] border border-white/50 flex flex-col justify-center overflow-hidden min-h-[260px]">
                         <AnimatePresence mode="wait">
                             {isLoading ? (
                                 <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex items-center justify-center text-[#596070] font-bold">
@@ -244,60 +238,78 @@ export default function ClassPage() {
                                     transition={{ duration: 0.3 }}
                                     className="flex-1 flex flex-col w-full"
                                 >
+                                    {/* ГРАФИК */}
                                     <div className="flex w-full h-[220px]">
-                                        <div className="flex flex-col justify-between text-[10px] font-bold text-[#859bb1] pr-2 h-[160px] items-end shrink-0 pb-1">
-                                            <span>5.0</span>
+                                        {/* Ось Y */}
+                                        <div className="flex flex-col justify-between text-[10px] font-bold text-[#859bb1] pr-2 h-[180px] items-end shrink-0 pt-0">
+                                            <span className="-mt-1.5">5.0</span>
                                             <span>4.0</span>
                                             <span>3.0</span>
                                             <span>2.0</span>
-                                            <span>1.0</span>
+                                            <span className="-mb-1.5">1.0</span>
                                         </div>
                                         
+                                        {/* Зона графика */}
                                         <div 
                                             ref={scrollRef}
-                                            className="flex-1 overflow-x-auto [&::-webkit-scrollbar]:hidden relative h-[200px] border-l border-b border-gray-300 snap-x snap-mandatory"
+                                            className="flex-1 overflow-x-auto [&::-webkit-scrollbar]:hidden relative border-l border-b border-gray-300 snap-x snap-mandatory"
                                         >
-                                            <div className="absolute inset-x-0 top-0 h-[160px] flex flex-col justify-between pointer-events-none opacity-20">
-                                                <div className="border-b border-gray-400 w-full h-0"></div>
-                                                <div className="border-b border-gray-400 w-full h-0"></div>
-                                                <div className="border-b border-gray-400 w-full h-0"></div>
-                                                <div className="border-b border-gray-400 w-full h-0"></div>
-                                            </div>
+                                            <div className="relative w-full flex flex-col h-full">
+                                                {/* Сетка (высота 180px) */}
+                                                <div className="relative h-[180px] w-full">
+                                                    <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
+                                                        <div className="border-b border-gray-400 w-full h-0"></div>
+                                                        <div className="border-b border-gray-400 w-full h-0"></div>
+                                                        <div className="border-b border-gray-400 w-full h-0"></div>
+                                                        <div className="border-b border-gray-400 w-full h-0"></div>
+                                                        <div className="border-b border-gray-400 w-full h-0"></div>
+                                                    </div>
 
-                                            <div className="flex gap-2 min-w-max items-end relative z-10 px-2 h-full pb-1">
-                                                {data?.topics_avg?.map((topic, index) => {
-                                                    const heightPercent = `${Math.max((topic.avg_score / 5) * 100, 5)}%`;
-                                                    const isActive = index === topicIndex;
-                                                    
-                                                    return (
-                                                        <div
-                                                            key={topic.topic_id}
-                                                            onClick={() => setTopicIndex(index)}
-                                                            className="flex flex-col items-center justify-end h-full w-[72px] cursor-pointer group snap-center shrink-0"
-                                                        >
-                                                            <motion.div
-                                                                initial={{ height: 0 }}
-                                                                animate={{ height: heightPercent }}
-                                                                transition={{ delay: 0.1 + index * 0.05, type: "spring", stiffness: 80 }}
-                                                                className={`w-[75%] rounded-t-md relative transition-colors ${
-                                                                    isActive ? 'bg-[#596070] shadow-md' : 'bg-[#94A9BE] group-hover:bg-[#596070]'
-                                                                }`}
-                                                            >
-                                                                <div className="absolute top-1 left-1/2 -translate-x-1/2 bg-[#1e293b] text-white text-[10px] font-bold py-0.5 px-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none shadow-md">
-                                                                    {topic.avg_score} б.
-                                                                </div>
-                                                            </motion.div>
+                                                    {/* Столбики */}
+                                                    <div className="flex gap-2 min-w-max items-end relative z-10 px-2 h-full">
+                                                        {data?.topics_avg?.map((topic, index) => {
+                                                            const heightPercent = `${Math.max((topic.avg_score / 5) * 100, 15)}%`;
+                                                            const isActive = index === topicIndex;
                                                             
-                                                            <div className="h-10 flex items-start justify-center mt-2 w-full">
+                                                            return (
+                                                                <div
+                                                                    key={topic.topic_id}
+                                                                    onClick={() => setTopicIndex(index)}
+                                                                    className="flex flex-col items-center justify-end h-full w-[72px] cursor-pointer group snap-center shrink-0"
+                                                                >
+                                                                    <motion.div
+                                                                        initial={{ height: 0 }}
+                                                                        animate={{ height: heightPercent }}
+                                                                        transition={{ delay: 0.1 + index * 0.05, type: "spring", stiffness: 80 }}
+                                                                        className={`w-[75%] rounded-t-md relative transition-colors flex justify-center pt-1 ${
+                                                                            isActive ? 'bg-[#596070] shadow-md' : 'bg-[#94A9BE] group-hover:bg-[#596070]'
+                                                                        }`}
+                                                                    >
+                                                                        <span className="text-[11px] font-extrabold text-white drop-shadow-md">
+                                                                            {topic.avg_score.toFixed(1)}
+                                                                        </span>
+                                                                    </motion.div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+
+                                                {/* Подписи тем (снизу) */}
+                                                <div className="flex gap-2 min-w-max px-2 w-full mt-2">
+                                                    {data?.topics_avg?.map((topic, index) => {
+                                                        const isActive = index === topicIndex;
+                                                        return (
+                                                            <div key={topic.topic_id} className="w-[72px] flex justify-center shrink-0">
                                                                 <span className={`text-[10px] font-bold text-center leading-[1.1] line-clamp-3 w-full ${
                                                                     isActive ? 'text-[#596070]' : 'text-[#859bb1]'
                                                                 }`}>
                                                                     {topic.topic_title}
                                                                 </span>
                                                             </div>
-                                                        </div>
-                                                    );
-                                                })}
+                                                        )
+                                                    })}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -305,55 +317,90 @@ export default function ClassPage() {
                             ) : (
                                 <motion.div
                                     key="pie"
-                                    initial={{ opacity: 0, x: 20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -20 }}
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.95 }}
                                     transition={{ duration: 0.3 }}
-                                    className="flex-1 flex flex-col items-center justify-center"
+                                    className="flex-1 flex flex-col items-center justify-center w-full"
                                 >
                                     <motion.div
                                         initial={{ scale: 0.8, rotate: -90 }}
                                         animate={{ scale: 1, rotate: 0 }}
                                         transition={{ type: "spring", stiffness: 100 }}
-                                        className="w-40 h-40 rounded-full mb-6 relative flex items-center justify-center shadow-lg"
+                                        className="w-44 h-44 rounded-full mb-8 relative flex items-center justify-center shadow-lg"
                                         style={{ background: getPieGradient() }}
                                     >
-                                        <div className="w-24 h-24 bg-[#F4F8F8] rounded-full flex items-center justify-center shadow-inner">
-                                            <span className="font-extrabold text-[#596070] text-2xl">
+                                        <div className="w-28 h-28 bg-[#F4F8F8] rounded-full flex items-center justify-center shadow-inner">
+                                            <span className="font-extrabold text-[#596070] text-[28px]">
                                                 {data?.big_numbers.avg_score?.toFixed(1) || '0.0'}
                                             </span>
                                         </div>
                                     </motion.div>
-                                    <div className="grid grid-cols-2 gap-x-8 gap-y-2 w-full max-w-[250px]">
-                                        <div className="flex items-center gap-2"><div className="w-3 h-3 bg-[#94A9BE] rounded-sm"></div><span className="text-[13px] font-bold text-[#596070]">Оценка 5: {data?.grade_distribution.grade_5}</span></div>
-                                        <div className="flex items-center gap-2"><div className="w-3 h-3 bg-[#B2CDE0] rounded-sm"></div><span className="text-[13px] font-bold text-[#596070]">Оценка 4: {data?.grade_distribution.grade_4}</span></div>
-                                        <div className="flex items-center gap-2"><div className="w-3 h-3 bg-[#EAF1F1] rounded-sm"></div><span className="text-[13px] font-bold text-[#596070]">Оценка 3: {data?.grade_distribution.grade_3}</span></div>
-                                        <div className="flex items-center gap-2"><div className="w-3 h-3 bg-[#596070] rounded-sm"></div><span className="text-[13px] font-bold text-[#596070]">Оценка 2: {data?.grade_distribution.grade_2}</span></div>
+                                    <div className="grid grid-cols-2 gap-x-4 gap-y-3 w-full max-w-[280px] mx-auto px-2">
+                                        <div className="flex items-center gap-2 justify-start">
+                                            <div className="w-3 h-3 bg-[#94A9BE] rounded-sm shrink-0"></div>
+                                            <span className="text-[12px] font-bold text-[#596070] whitespace-nowrap">Оценка 5: {data?.grade_distribution.grade_5} чел.</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 justify-start">
+                                            <div className="w-3 h-3 bg-[#B2CDE0] rounded-sm shrink-0"></div>
+                                            <span className="text-[12px] font-bold text-[#596070] whitespace-nowrap">Оценка 4: {data?.grade_distribution.grade_4} чел.</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 justify-start">
+                                            <div className="w-3 h-3 bg-[#EAF1F1] border border-gray-200 rounded-sm shrink-0"></div>
+                                            <span className="text-[12px] font-bold text-[#596070] whitespace-nowrap">Оценка 3: {data?.grade_distribution.grade_3} чел.</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 justify-start">
+                                            <div className="w-3 h-3 bg-[#596070] rounded-sm shrink-0"></div>
+                                            <span className="text-[12px] font-bold text-[#596070] whitespace-nowrap">Оценка 2: {data?.grade_distribution.grade_2} чел.</span>
+                                        </div>
                                     </div>
                                 </motion.div>
                             )}
                         </AnimatePresence>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-3 mt-4">
+                    <div className="flex justify-end mt-4 mb-2 px-1">
+                        <button 
+                            onClick={() => setIsInfoOpen(true)}
+                            className="flex items-center gap-1.5 text-[#859bb1] hover:text-[#596070] font-bold text-[12px] transition-colors"
+                        >
+                            <HelpCircle size={14} />
+                            Что значат эти цифры?
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3">
                         <div className="bg-white/60 backdrop-blur-md rounded-2xl p-3 flex flex-col items-center justify-center shadow-sm border border-white/50">
                             <span className="text-[10px] font-bold text-[#859bb1] uppercase text-center mb-1">Средний балл</span>
                             <span className="text-xl font-extrabold text-[#596070]">{data?.big_numbers.avg_score?.toFixed(1) || '-'}</span>
                         </div>
                         <div className="bg-white/60 backdrop-blur-md rounded-2xl p-3 flex flex-col items-center justify-center shadow-sm border border-white/50">
-                            <span className="text-[10px] font-bold text-[#859bb1] uppercase text-center mb-1">Долги</span>
+                            <span className="text-[10px] font-bold text-[#859bb1] uppercase text-center mb-1">Всего долгов</span>
                             <span className="text-xl font-extrabold text-[#596070]">{data?.big_numbers.active_debts || 0}</span>
                         </div>
                         <div className="bg-white/60 backdrop-blur-md rounded-2xl p-3 flex flex-col items-center justify-center shadow-sm border border-white/50">
                             <span className="text-[10px] font-bold text-[#859bb1] uppercase text-center mb-1">Слабая тема</span>
                             <span className="text-[13px] font-extrabold text-[#596070] text-center line-clamp-2 leading-tight">
-                                {data?.weakest_topic?.topic_title || 'Нет'}
+                                {(data?.weakest_topic && data.weakest_topic.avg_score < 4.0) 
+                                    ? data.weakest_topic.topic_title 
+                                    : 'Нет'}
                             </span>
                         </div>
                     </div>
 
-                    <div className="bg-white/60 backdrop-blur-md rounded-[40px] p-6 mt-4 shadow-[0px_10px_30px_rgba(0,0,0,0.05)] border border-white/50 flex flex-col items-center text-center">
-                        <h3 className="text-[20px] font-extrabold text-[#596070] mb-3">
+                    <Button
+                        onClick={() => navigate(`/teacher/classes/${classId}/seating`)}
+                        className="w-full h-[56px] mt-4 bg-[#C9D9E6] hover:bg-[#b5c8d8] text-[#596070] rounded-[20px] text-[16px] font-extrabold transition-all shadow-sm flex items-center justify-center gap-2"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                        </svg>
+                        ИЗМЕНИТЬ РАССАДКУ
+                    </Button>
+
+                    <div className="bg-white/60 backdrop-blur-md rounded-[30px] p-5 mt-4 shadow-[0px_10px_30px_rgba(0,0,0,0.05)] border border-white/50 flex flex-col items-center text-center">
+                        <h3 className="text-[18px] font-extrabold text-[#596070] mb-2">
                             РЕКОМЕНДАЦИИ ИИ
                         </h3>
                         
@@ -363,20 +410,56 @@ export default function ClassPage() {
                                 <p className="text-[12px] font-bold text-[#859bb1]">ИИ анализирует данные...</p>
                             </div>
                         ) : (
-                            <p className="text-[13px] text-[#859bb1] font-bold leading-relaxed mb-6 min-h-[40px]">
+                            <p className="text-[13px] text-[#859bb1] font-bold leading-relaxed mb-2 min-h-[40px]">
                                 {aiRecommendation || 'Проблем не обнаружено. Отличная работа!'}
                             </p>
                         )}
-
-                        <Button
-                            onClick={() => navigate(`/teacher/classes/${classId}/seating`)}
-                            className="w-full h-[60px] bg-[#C9D9E6] hover:bg-[#b5c8d8] text-[#596070] rounded-[30px] text-[18px] font-extrabold transition-all"
-                        >
-                            ИЗМЕНИТЬ РАССАДКУ
-                        </Button>
                     </div>
                 </motion.div>
             </motion.div>
+
+            <AnimatePresence>
+                {isInfoOpen && (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50"
+                            onClick={() => setIsInfoOpen(false)}
+                        />
+                        <motion.div
+                            initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+                            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                            className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-[40px] p-6 pb-10 shadow-2xl flex flex-col items-center max-w-[440px] mx-auto"
+                        >
+                            <div className="w-12 h-1.5 bg-gray-200 rounded-full mb-6" />
+                            
+                            <div className="w-full flex justify-between items-center mb-6 px-2">
+                                <h3 className="text-[20px] font-extrabold text-[#596070]">Расшифровка</h3>
+                                <button onClick={() => setIsInfoOpen(false)} className="w-8 h-8 bg-[#f2f6f9] rounded-full flex items-center justify-center text-[#859bb1] hover:bg-[#e2eaf1]">
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <div className="w-full flex flex-col gap-4">
+                                <div className="bg-[#F4F8F8] p-4 rounded-[20px] border border-[#C9D9E6]/50">
+                                    <h4 className="font-extrabold text-[#596070] text-[15px] mb-1">Средний балл</h4>
+                                    <p className="text-[13px] text-[#859bb1] font-semibold leading-snug">Это среднее арифметическое всех оценок класса по предмету. Показывает общую успеваемость.</p>
+                                </div>
+
+                                <div className="bg-[#F4F8F8] p-4 rounded-[20px] border border-[#C9D9E6]/50">
+                                    <h4 className="font-extrabold text-[#596070] text-[15px] mb-1">Всего долгов</h4>
+                                    <p className="text-[13px] text-[#859bb1] font-semibold leading-snug">Количество невыполненных домашних заданий или неудовлетворительных оценок, которые нужно исправить ученикам.</p>
+                                </div>
+
+                                <div className="bg-[#F4F8F8] p-4 rounded-[20px] border border-[#C9D9E6]/50">
+                                    <h4 className="font-extrabold text-[#596070] text-[15px] mb-1">Слабая тема</h4>
+                                    <p className="text-[13px] text-[#859bb1] font-semibold leading-relaxed">Тема, по которой класс показал самый низкий результат (средний балл ниже 4.0). Если баллы высокие, система напишет «Нет».</p>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

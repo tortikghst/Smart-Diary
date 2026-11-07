@@ -95,7 +95,6 @@ const SeatItem = ({ seat, student, onClick }: { seat: Seat, student: Student | n
             {...attributes}
             onClick={onClick}
             title={student.full_name}
-            // 👇 Убрали transition-all, оставили только transition-shadow
             className={`w-full h-12 rounded-[16px] flex flex-col justify-center items-center text-white shadow-sm transition-shadow touch-none cursor-grab active:cursor-grabbing bg-[#4A5568] relative px-1 ${
                 isOver ? 'ring-2 ring-[#94A9BE] scale-105' : ''
             }`}
@@ -109,13 +108,12 @@ const SeatItem = ({ seat, student, onClick }: { seat: Seat, student: Student | n
                 </span>
             )}
 
+            {/* Отрисовываем только первый маркер, так как теперь разрешен только один */}
             {seat.markers && seat.markers.length > 0 && (
-                <div className="absolute -top-1.5 -right-1.5 flex gap-0.5 bg-white/90 backdrop-blur-sm px-1 py-0.5 rounded-full shadow-md border border-gray-100 z-10">
-                    {seat.markers.map(m => (
-                        <span key={m} className="text-[10px] leading-none">
-                            {AVAILABLE_MARKERS.find(am => am.id === m)?.icon}
-                        </span>
-                    ))}
+                <div className="absolute -top-1.5 -right-1.5 flex items-center justify-center w-5 h-5 bg-white/95 backdrop-blur-sm rounded-full shadow-md border border-gray-100 z-20">
+                    <span className="text-[10px] leading-none">
+                        {AVAILABLE_MARKERS.find(am => am.id === seat.markers[0])?.icon}
+                    </span>
                 </div>
             )}
         </div>
@@ -149,11 +147,10 @@ export default function SeatingPage() {
         setTimeout(() => setToast(null), 3000);
     };
 
-    // 👇 ИДЕАЛЬНЫЙ СЕНСОР ДЛЯ МОБИЛОК И МЫШКИ 👇
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
-                distance: 8, // Начинаем тащить только после сдвига на 8px
+                distance: 8,
             },
         })
     );
@@ -216,7 +213,8 @@ export default function SeatingPage() {
 
             const updatedSeats = newData.layout_json.seats.map((seat: Seat) => {
                 if (seat.student_id !== 0 && savedMarkers[seat.student_id]) {
-                    return { ...seat, markers: savedMarkers[seat.student_id] };
+                    // При генерации тоже оставляем только первый маркер, чтобы не сломать логику
+                    return { ...seat, markers: [savedMarkers[seat.student_id][0]] };
                 }
                 return seat;
             });
@@ -282,9 +280,8 @@ export default function SeatingPage() {
     const toggleMarker = async (markerId: string) => {
         if (!activeSeat || !data) return;
 
-        const newMarkers = activeSeat.markers.includes(markerId)
-            ? activeSeat.markers.filter(m => m !== markerId)
-            : [...activeSeat.markers, markerId];
+        // ЛОГИКА РАДИО-КНОПКИ: если этот маркер уже выбран - убираем, иначе ставим ТОЛЬКО его
+        const newMarkers = activeSeat.markers.includes(markerId) ? [] : [markerId];
 
         const updatedSeats = data.layout_json.seats.map(s =>
             s.row === activeSeat.row && s.col === activeSeat.col
@@ -382,15 +379,8 @@ export default function SeatingPage() {
         setIsGridSettingsOpen(false);
     };
 
-    const container = {
-        hidden: { opacity: 0 },
-        show: { opacity: 1, transition: { staggerChildren: 0.1 } }
-    };
-
-    const item = {
-        hidden: { opacity: 0, y: 30 },
-        show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 100 } }
-    };
+    const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } };
+    const item = { hidden: { opacity: 0, y: 30 }, show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 100 } } };
 
     const rows = data?.layout_json?.grid?.rows || 5;
     const cols = data?.layout_json?.grid?.cols || 6;
@@ -598,7 +588,7 @@ export default function SeatingPage() {
                         >
                             <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-6" />
 
-                            <h3 className="text-2xl font-extrabold text-[#596070] text-center mb-1">Маркеры</h3>
+                            <h3 className="text-2xl font-extrabold text-[#596070] text-center mb-1">Особенность</h3>
                             <p className="text-center text-[#859bb1] text-sm mb-6 font-bold truncate">
                                 {students.find(s => s.student_id === activeSeat.student_id)?.full_name}
                             </p>

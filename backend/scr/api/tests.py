@@ -187,11 +187,9 @@ async def get_ai_feedback(
         elif "numeric" in q_type:
             if db_question.numeric_answer is not None:
                 correct_ans_str = f"{float(db_question.numeric_answer):g}"
-                
-        # 👇 ДОБАВЛЕНА ОБРАБОТКА MATCHING 👇
+
         elif "matching" in q_type and db_question.options:
             correct_matches = db_question.options.get("correct_matches", {})
-            # Превращаем словарь в JSON-строку, чтобы фронтенд её распарсил
             correct_ans_str = json.dumps(correct_matches, ensure_ascii=False)
 
         # Генерируем пояснение
@@ -201,12 +199,13 @@ async def get_ai_feedback(
         else:
             try:
                 from scr.services.llm_service import YandexGPTService
-                prompt = (
-                    f"Кратко объясни школьнику, почему на вопрос '{db_question.question}' "
-                    f"правильный ответ — '{correct_ans_str}', а его ответ '{user_ans_str}' неверен. "
-                    f"Ответь одним коротким предложением."
+                
+                # 👇 ИСПОЛЬЗУЕМ НОВЫЙ МЕТОД ДЛЯ РАЗБОРА 👇
+                ai_exp = await YandexGPTService.generate_error_explanation(
+                    question=db_question.question,
+                    user_answer=str(user_ans_str),
+                    correct_answer=str(correct_ans_str)
                 )
-                ai_exp = await YandexGPTService.generate_text(prompt)
                 if ai_exp:
                     explanation = ai_exp
             except Exception as e:

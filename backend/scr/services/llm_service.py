@@ -102,21 +102,17 @@ class YandexGPTService:
                 
                 data_list = []
 
-                # 👇 1. ПРОВЕРЯЕМ TOOL_CALLS (как делает Llama 3.3) 👇
                 if message.get("tool_calls"):
                     print("🤖 Модель вернула ответ через tool_calls, парсим...", flush=True)
                     args_str = message["tool_calls"][0]["function"]["arguments"]
                     parsed_args = json.loads(args_str)
-                    
                     questions_obj = parsed_args.get("questions", [])
                     
-                    # Llama иногда оборачивает массив в {"type": "array", "value": [...]}
                     if isinstance(questions_obj, dict) and "value" in questions_obj:
                         data_list = questions_obj["value"]
                     elif isinstance(questions_obj, list):
                         data_list = questions_obj
                         
-                # 👇 2. ПРОВЕРЯЕМ CONTENT (как делают другие модели) 👇
                 elif message.get("content"):
                     raw_text = message["content"].strip()
                     raw_text = raw_text.replace("```json", "").replace("```", "").strip()
@@ -169,3 +165,16 @@ class YandexGPTService:
             print(f"🚨🚨🚨 ОШИБКА ПРИ ЗАПРОСЕ ТЕКСТА: {repr(e)}", flush=True)
             traceback.print_exc()
             return None
+
+    # 👇 НОВЫЙ МЕТОД ДЛЯ ГЕНЕРАЦИИ РАЗБОРА ОШИБОК 👇
+    @staticmethod
+    async def generate_error_explanation(question: str, user_answer: str, correct_answer: str) -> str | None:
+        prompt = (
+            f"Ты — школьный учитель. Ученик ошибся в вопросе: '{question}'.\n"
+            f"Ответ ученика: '{user_answer}'.\n"
+            f"Правильный ответ: '{correct_answer}'.\n\n"
+            f"Объясни, почему ответ ученика неверен, и подробно расскажи, КАК ПРАВИЛЬНО решить это задание "
+            f"или какое правило/формулу нужно было применить. Пиши кратко, но информативно (2-3 предложения), "
+            f"без лишних вступлений. Обращайся к ученику на 'ты'."
+        )
+        return await YandexGPTService.generate_text(prompt)
