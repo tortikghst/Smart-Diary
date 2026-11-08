@@ -7,6 +7,7 @@ import homeIcon from '@/assets/Home-Logo.svg';
 import journalIcon from '@/assets/Journal-Logo.svg';
 import { apiFetch } from '../utils/api';
 import { getErrorMessage } from '../utils/Errors.ts';
+import { HelpCircle, X } from 'lucide-react';
 
 interface TopicAvg {
     topic_id: number;
@@ -25,8 +26,6 @@ interface AnalyticsData {
     ai_recommendation: string | null;
 }
 
-type MetricType = 'avg' | 'debts' | 'weak' | null;
-
 export default function ClassPage() {
     const { classId } = useParams();
     const navigate = useNavigate();
@@ -42,10 +41,12 @@ export default function ClassPage() {
     const [activeChart, setActiveChart] = useState<'bar' | 'pie'>('bar');
     const [topicIndex, setTopicIndex] = useState(0);
 
+    // Состояния для ИИ (теперь они снова используются в JSX)
     const [aiRecommendation, setAiRecommendation] = useState<string | null>(null);
     const [isAiLoading, setIsAiLoading] = useState(true);
 
-    const [activeMetric, setActiveMetric] = useState<MetricType>(null);
+    // Стейт для модалки "Расшифровка"
+    const [isInfoOpen, setIsInfoOpen] = useState(false);
 
     useEffect(() => {
         const fetchAnalytics = async () => {
@@ -108,27 +109,10 @@ export default function ClassPage() {
 
     const currentTopicName = data?.topics_avg?.[topicIndex]?.topic_title || 'НЕТ ТЕМ';
 
+    // Логика слабой темы
     const hasWeakTopic = data?.weakest_topic && data.weakest_topic.avg_score <= 4.0;
     const weakTopicTitle = hasWeakTopic ? data.weakest_topic?.topic_title : 'Нет';
 
-    const metricInfo = {
-        avg: {
-            title: 'Средний балл',
-            text: 'Это среднее арифметическое всех оценок класса по предмету. Показывает общую успеваемость. Выше 4.0 — отличный результат, ниже 3.5 — классу требуется помощь.'
-        },
-        debts: {
-            title: 'Долги',
-            text: 'Количество неотработанных задолженностей. Сюда входят пропущенные домашние задания и неудовлетворительные оценки, которые еще не исправлены.'
-        },
-        weak: {
-            title: 'Слабая тема',
-            text: hasWeakTopic 
-                ? 'Тема, по которой у класса самый низкий средний балл. Рекомендуется посвятить ей следующий урок или провести дополнительное занятие.'
-                : 'Отличная работа! Все темы усвоены со средним баллом выше 4.0. Слабых тем нет.'
-        }
-    };
-
-    // Подготовка данных для легенды круговой диаграммы
     const gradeStats = data ? [
         { label: 'Оценка 5', value: data.grade_distribution.grade_5, color: 'bg-[#94A9BE]' },
         { label: 'Оценка 4', value: data.grade_distribution.grade_4, color: 'bg-[#B2CDE0]' },
@@ -194,12 +178,10 @@ export default function ClassPage() {
                                 </motion.div>
                             ) : activeChart === 'bar' ? (
                                 <motion.div key="bar" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="flex-1 flex flex-col w-full items-center justify-center">
-                                    
                                     <div className="flex w-full h-[220px] items-center justify-center">
                                         <div className="flex flex-col justify-between text-[10px] font-bold text-[#859bb1] pr-2 h-[160px] items-end shrink-0 pb-1">
                                             <span>5.0</span><span>4.0</span><span>3.0</span><span>2.0</span><span>1.0</span>
                                         </div>
-                                        
                                         <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-x-auto [&::-webkit-scrollbar]:hidden relative h-[200px] border-l border-b border-gray-300 snap-x snap-mandatory">
                                             <div className="absolute inset-x-0 top-0 h-[160px] flex flex-col justify-between pointer-events-none opacity-20">
                                                 <div className="border-b border-gray-400 w-full h-0"></div><div className="border-b border-gray-400 w-full h-0"></div><div className="border-b border-gray-400 w-full h-0"></div><div className="border-b border-gray-400 w-full h-0"></div>
@@ -226,7 +208,6 @@ export default function ClassPage() {
                                             </div>
                                         </div>
                                     </div>
-
                                     <div className="flex w-full mt-2 pl-[28px]">
                                         <div ref={labelsScrollRef} className="flex-1 overflow-x-auto [&::-webkit-scrollbar]:hidden">
                                             <div className="flex gap-2 min-w-max px-2">
@@ -240,15 +221,12 @@ export default function ClassPage() {
                                     </div>
                                 </motion.div>
                             ) : (
-                                /* 👇 ОБНОВЛЕННЫЙ БЛОК КРУГОВОЙ ДИАГРАММЫ 👇 */
                                 <motion.div key="pie" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }} className="flex-1 flex flex-col items-center justify-center w-full">
                                     <motion.div initial={{ scale: 0.8, rotate: -90 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 100 }} className="w-40 h-40 rounded-full mb-6 relative flex items-center justify-center shadow-lg" style={{ background: getPieGradient() }}>
                                         <div className="w-24 h-24 bg-[#F4F8F8] rounded-full flex items-center justify-center shadow-inner">
                                             <span className="font-extrabold text-[#596070] text-2xl">{data?.big_numbers.avg_score?.toFixed(1) || '0.0'}</span>
                                         </div>
                                     </motion.div>
-                                    
-                                    {/* Новая понятная легенда с процентами */}
                                     <div className="flex flex-col gap-2 w-full max-w-[260px] mt-2">
                                         {gradeStats.map((stat, i) => {
                                             const percent = totalGrades > 0 ? Math.round((stat.value / totalGrades) * 100) : 0;
@@ -271,26 +249,34 @@ export default function ClassPage() {
                         </AnimatePresence>
                     </div>
 
-                    <p className="text-[12px] text-[#859bb1] font-bold mt-6 mb-2 text-center px-4">
-                        Сводные показатели успеваемости класса
-                    </p>
-                    <div className="grid grid-cols-3 gap-3">
-                        <button onClick={() => setActiveMetric('avg')} className="bg-white/60 backdrop-blur-md rounded-2xl p-3 flex flex-col items-center justify-center shadow-sm border border-white/50 hover:bg-white/80 transition-colors">
+                    {/* КНОПКА "ЧТО ОЗНАЧАЮТ ЭТИ ЦИФРЫ?" */}
+                    <button 
+                        onClick={() => setIsInfoOpen(true)}
+                        className="flex items-center justify-center gap-1.5 w-full mt-3 text-[#859bb1] hover:text-[#596070] transition-colors group"
+                    >
+                        <HelpCircle size={16} className="group-hover:text-[#596070] transition-colors" />
+                        <span className="text-[12px] font-bold">Что означают эти цифры?</span>
+                    </button>
+
+                    {/* КАРТОЧКИ (СТАТИЧНЫЕ) */}
+                    <div className="grid grid-cols-3 gap-3 mt-4">
+                        <div className="bg-white/60 backdrop-blur-md rounded-2xl p-3 flex flex-col items-center justify-center shadow-sm border border-white/50">
                             <span className="text-[10px] font-bold text-[#859bb1] uppercase text-center mb-1">Средний балл</span>
                             <span className="text-xl font-extrabold text-[#596070]">{data?.big_numbers.avg_score?.toFixed(1) || '-'}</span>
-                        </button>
-                        <button onClick={() => setActiveMetric('debts')} className="bg-white/60 backdrop-blur-md rounded-2xl p-3 flex flex-col items-center justify-center shadow-sm border border-white/50 hover:bg-white/80 transition-colors">
-                            <span className="text-[10px] font-bold text-[#859bb1] uppercase text-center mb-1">Долги</span>
+                        </div>
+                        <div className="bg-white/60 backdrop-blur-md rounded-2xl p-3 flex flex-col items-center justify-center shadow-sm border border-white/50">
+                            <span className="text-[10px] font-bold text-[#859bb1] uppercase text-center mb-1">Всего долгов</span>
                             <span className="text-xl font-extrabold text-[#596070]">{data?.big_numbers.active_debts || 0}</span>
-                        </button>
-                        <button onClick={() => setActiveMetric('weak')} className="bg-white/60 backdrop-blur-md rounded-2xl p-3 flex flex-col items-center justify-center shadow-sm border border-white/50 hover:bg-white/80 transition-colors">
+                        </div>
+                        <div className="bg-white/60 backdrop-blur-md rounded-2xl p-3 flex flex-col items-center justify-center shadow-sm border border-white/50">
                             <span className="text-[10px] font-bold text-[#859bb1] uppercase text-center mb-1">Слабая тема</span>
                             <span className="text-[13px] font-extrabold text-[#596070] text-center line-clamp-2 leading-tight">
                                 {weakTopicTitle}
                             </span>
-                        </button>
+                        </div>
                     </div>
 
+                    {/* БЛОК ИИ (ВОЗВРАЩЕН, ЧТОБЫ ИСПРАВИТЬ ОШИБКУ СБОРКИ) */}
                     <div className="bg-white/60 backdrop-blur-md rounded-[40px] p-6 mt-4 shadow-[0px_10px_30px_rgba(0,0,0,0.05)] border border-white/50 flex flex-col items-center text-center">
                         <h3 className="text-[20px] font-extrabold text-[#596070] mb-3">РЕКОМЕНДАЦИИ ИИ</h3>
                         {isAiLoading ? (
@@ -303,23 +289,25 @@ export default function ClassPage() {
                         )}
                     </div>
 
+                    {/* КНОПКА В САМОМ НИЗУ */}
                     <Button 
                         onClick={() => navigate(`/teacher/classes/${classId}/seating`)} 
-                        className="w-full h-[60px] mt-6 bg-[#C9D9E6] hover:bg-[#b5c8d8] text-[#596070] rounded-[30px] text-[18px] font-extrabold transition-all shadow-sm"
+                        className="w-full h-[60px] mt-4 bg-[#C9D9E6] hover:bg-[#b5c8d8] text-[#596070] rounded-[30px] text-[18px] font-extrabold transition-all shadow-sm"
                     >
                         ИЗМЕНИТЬ РАССАДКУ
                     </Button>
                 </motion.div>
             </motion.div>
 
+            {/* МОДАЛКА "РАСШИФРОВКА" */}
             <AnimatePresence>
-                {activeMetric && (
+                {isInfoOpen && (
                     <motion.div 
                         initial={{ opacity: 0 }} 
                         animate={{ opacity: 1 }} 
                         exit={{ opacity: 0 }} 
                         className="fixed inset-0 bg-black/40 z-[100] flex items-end justify-center"
-                        onClick={() => setActiveMetric(null)}
+                        onClick={() => setIsInfoOpen(false)}
                     >
                         <motion.div 
                             initial={{ y: "100%" }} 
@@ -330,18 +318,37 @@ export default function ClassPage() {
                             onClick={(e) => e.stopPropagation()}
                         >
                             <div className="w-12 h-1.5 bg-[#C9D9E6] rounded-full mx-auto mb-5" />
-                            <h3 className="text-[22px] font-extrabold text-[#596070] mb-3">
-                                {metricInfo[activeMetric].title}
-                            </h3>
-                            <p className="text-[14px] text-[#859bb1] font-bold leading-relaxed mb-6">
-                                {metricInfo[activeMetric].text}
-                            </p>
-                            <Button 
-                                onClick={() => setActiveMetric(null)}
-                                className="w-full h-[56px] bg-[#94A9BE] hover:bg-[#859bb1] text-white rounded-2xl font-extrabold text-[16px]"
-                            >
-                                Понятно
-                            </Button>
+                            
+                            <div className="flex justify-between items-center mb-5">
+                                <h3 className="text-[22px] font-extrabold text-[#596070]">
+                                    Расшифровка
+                                </h3>
+                                <button onClick={() => setIsInfoOpen(false)} className="w-8 h-8 bg-[#EAF1F1] rounded-full flex items-center justify-center text-[#859bb1] hover:bg-[#d1e0e0] transition-colors">
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <div className="flex flex-col gap-3">
+                                <div className="bg-[#EAF1F1]/60 rounded-2xl p-4 border border-white/50">
+                                    <h4 className="text-[14px] font-extrabold text-[#596070] mb-1">Средний балл</h4>
+                                    <p className="text-[12px] text-[#859bb1] font-bold leading-relaxed">
+                                        Это среднее арифметическое всех оценок класса по предмету. Показывает общую успеваемость.
+                                    </p>
+                                </div>
+                                <div className="bg-[#EAF1F1]/60 rounded-2xl p-4 border border-white/50">
+                                    <h4 className="text-[14px] font-extrabold text-[#596070] mb-1">Всего долгов</h4>
+                                    <p className="text-[12px] text-[#859bb1] font-bold leading-relaxed">
+                                        Количество невыполненных домашних заданий или неудовлетворительных оценок, которые нужно исправить ученикам.
+                                    </p>
+                                </div>
+                                <div className="bg-[#EAF1F1]/60 rounded-2xl p-4 border border-white/50">
+                                    <h4 className="text-[14px] font-extrabold text-[#596070] mb-1">Слабая тема</h4>
+                                    <p className="text-[12px] text-[#859bb1] font-bold leading-relaxed">
+                                        Тема, по которой класс показал самый низкий результат (средний балл ниже 4.0). Если баллы высокие, система напишет «Нет».
+                                    </p>
+                                </div>
+                            </div>
+
                         </motion.div>
                     </motion.div>
                 )}
