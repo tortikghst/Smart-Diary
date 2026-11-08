@@ -17,6 +17,7 @@ export const auth = {
 
 interface FetchOptions extends Omit<RequestInit, "body" | "headers"> {
   json?: unknown;
+  body?: BodyInit | null; // 👈 ДОБАВИЛИ ПОДДЕРЖКУ BODY (для FormData)
   headers?: Record<string, string>;
   skipAuth?: boolean;
 }
@@ -25,10 +26,13 @@ export async function apiFetch<T = unknown>(
   path: string,
   options: FetchOptions = {},
 ): Promise<T> {
-  const { json, headers = {}, skipAuth, ...rest } = options;
+  // Достаем body из опций
+  const { json, body, headers = {}, skipAuth, ...rest } = options;
   const token = auth.getToken();
 
   const finalHeaders: Record<string, string> = {
+    // Content-Type ставим ТОЛЬКО если передали json (для обычных запросов)
+    // Если передали FormData, браузер сам поставит правильный multipart/form-data с boundary
     ...(json !== undefined ? { "Content-Type": "application/json" } : {}),
     ...(token && !skipAuth ? { Authorization: `Bearer ${token}` } : {}),
     ...headers,
@@ -39,7 +43,8 @@ export async function apiFetch<T = unknown>(
     response = await fetch(`${BASE_URL}${path}`, {
       ...rest,
       headers: finalHeaders,
-      body: json !== undefined ? JSON.stringify(json) : undefined,
+      // Если есть json, отправляем его строкой, иначе используем body (например, FormData)
+      body: json !== undefined ? JSON.stringify(json) : body,
     });
   } catch {
     throw new NetworkError();
